@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../services/user_service.dart';
 
 class BadgesTab extends StatefulWidget {
   final List badges;
@@ -20,11 +21,14 @@ class BadgesTab extends StatefulWidget {
 }
 
 class _BadgesTabState extends State<BadgesTab> {
+  final _userService = UserService();
   String badgeFilter = 'all';
+  bool _claiming = false;
 
   final Map<String, List<Map<String, dynamic>>> tierBadges = {
     'Tier 1': [
       {
+        'id': 'sip-rookie',
         'name': 'Sip Rookie',
         'icon': '🪣',
         'target': 5,
@@ -32,6 +36,7 @@ class _BadgesTabState extends State<BadgesTab> {
         'description': 'Rate your first 5 drinks'
       },
       {
+        'id': 'introvert',
         'name': 'Introvert',
         'icon': '👤',
         'target': 5,
@@ -39,6 +44,7 @@ class _BadgesTabState extends State<BadgesTab> {
         'description': 'Add 5 friends'
       },
       {
+        'id': 'hopper',
         'name': 'Hopper',
         'icon': '🗺️',
         'target': 5,
@@ -48,6 +54,7 @@ class _BadgesTabState extends State<BadgesTab> {
     ],
     'Tier 2': [
       {
+        'id': 'alchemist',
         'name': 'Alchemist',
         'icon': '⚗️',
         'target': 50,
@@ -55,6 +62,7 @@ class _BadgesTabState extends State<BadgesTab> {
         'description': 'Rate 50 drinks'
       },
       {
+        'id': 'social-butterfly',
         'name': 'Social Butterfly',
         'icon': '🦋',
         'target': 50,
@@ -62,6 +70,7 @@ class _BadgesTabState extends State<BadgesTab> {
         'description': 'Build a network of 50 friends'
       },
       {
+        'id': 'sipzy-crawler',
         'name': 'SipZy Crawler',
         'icon': '🕷️',
         'target': 50,
@@ -71,6 +80,7 @@ class _BadgesTabState extends State<BadgesTab> {
     ],
     'Tier 3': [
       {
+        'id': 'connoisseur',
         'name': 'Connoisseur',
         'icon': '👑',
         'target': 100,
@@ -78,6 +88,7 @@ class _BadgesTabState extends State<BadgesTab> {
         'description': 'Rate 100 drinks like a pro'
       },
       {
+        'id': 'tribe-star',
         'name': 'Tribe Star',
         'icon': '⭐',
         'target': 100,
@@ -85,6 +96,7 @@ class _BadgesTabState extends State<BadgesTab> {
         'description': 'Create a tribe of 100 friends'
       },
       {
+        'id': 'sipzy-nomad',
         'name': 'SipZy NoMad',
         'icon': '🌍',
         'target': 100,
@@ -117,6 +129,7 @@ class _BadgesTabState extends State<BadgesTab> {
         final earned = progress >= target;
 
         allBadges.add({
+          'id': badge['id'],
           'tier': tier,
           'name': badge['name'],
           'icon': badge['icon'],
@@ -130,6 +143,39 @@ class _BadgesTabState extends State<BadgesTab> {
     });
 
     return allBadges;
+  }
+
+  Future<void> _claimBadge(String badgeId) async {
+    if (_claiming) return;
+
+    setState(() => _claiming = true);
+
+    try {
+      final success = await _userService.claimBadge(badgeId);
+
+      if (success) {
+        _showToast('Badge claimed! 🎉');
+        widget.onRefresh();
+      } else {
+        _showToast('Failed to claim badge', isError: true);
+      }
+    } catch (e) {
+      print('❌ Claim badge error: $e');
+      _showToast('Error claiming badge', isError: true);
+    } finally {
+      setState(() => _claiming = false);
+    }
+  }
+
+  void _showToast(String msg, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: isError ? Colors.red : AppTheme.primary,
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   @override
@@ -163,7 +209,6 @@ class _BadgesTabState extends State<BadgesTab> {
       child: GestureDetector(
         onTap: () {
           setState(() => badgeFilter = value);
-          // Refresh data when filter changes
           widget.onRefresh();
         },
         child: Container(
@@ -315,6 +360,7 @@ class _BadgesTabState extends State<BadgesTab> {
     final progress = badge['progress'] as int;
     final target = badge['target'] as int;
     final earned = badge['earned'] as bool;
+    final badgeId = badge['id'] as String;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -322,6 +368,9 @@ class _BadgesTabState extends State<BadgesTab> {
       decoration: BoxDecoration(
         color: const Color(0xFF2A2A2A),
         borderRadius: BorderRadius.circular(12),
+        border: earned
+            ? Border.all(color: tierColor.withOpacity(0.5), width: 2)
+            : null,
       ),
       child: Row(
         children: [
@@ -360,15 +409,59 @@ class _BadgesTabState extends State<BadgesTab> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '$progress/$target completed',
+                  badge['description'],
                   style: const TextStyle(
                     color: AppTheme.textTertiary,
-                    fontSize: 12,
+                    fontSize: 11,
                   ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: progress / target,
+                          backgroundColor: Colors.white12,
+                          valueColor: AlwaysStoppedAnimation<Color>(tierColor),
+                          minHeight: 6,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '$progress/$target',
+                      style: const TextStyle(
+                        color: AppTheme.textTertiary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
+          const SizedBox(width: 8),
+          // Claim button
+          if (earned)
+            _claiming
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor:
+                          AlwaysStoppedAnimation<Color>(AppTheme.primary),
+                    ),
+                  )
+                : IconButton(
+                    onPressed: () => _claimBadge(badgeId),
+                    icon: const Icon(Icons.workspace_premium),
+                    color: tierColor,
+                    tooltip: 'Claim Badge',
+                  ),
         ],
       ),
     );

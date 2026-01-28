@@ -24,6 +24,7 @@ dependencies:
   geolocator: ^10.1.0
   permission_handler: ^11.0.1
   font_awesome_flutter: ^10.7.0
+  path: ^1.8.3
 
 fonts:
   - family: SpaceGrotesk

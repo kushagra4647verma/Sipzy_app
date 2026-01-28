@@ -56,6 +56,7 @@ class DiaryTabState extends State<DiaryTab> {
         widget.showToast('Failed to add diary entry', isError: true);
       }
     } catch (e) {
+      print('❌ Add diary error: $e');
       widget.showToast('Error adding diary', isError: true);
     }
   }
@@ -71,6 +72,7 @@ class DiaryTabState extends State<DiaryTab> {
         widget.showToast('Failed to delete diary', isError: true);
       }
     } catch (e) {
+      print('❌ Delete diary error: $e');
       widget.showToast('Error deleting diary', isError: true);
     }
   }
@@ -82,6 +84,7 @@ class DiaryTabState extends State<DiaryTab> {
     int rating = 3;
     bool shareToFeed = false;
     String? uploadedImageUrl;
+    bool isUploading = false;
 
     showDialog(
       context: context,
@@ -123,10 +126,17 @@ class DiaryTabState extends State<DiaryTab> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildPhotoUpload(setDialogState, uploadedImageUrl,
-                          (url) {
-                        setDialogState(() => uploadedImageUrl = url);
-                      }),
+                      _buildPhotoUpload(
+                        setDialogState,
+                        uploadedImageUrl,
+                        isUploading,
+                        (url) {
+                          setDialogState(() => uploadedImageUrl = url);
+                        },
+                        (uploading) {
+                          setDialogState(() => isUploading = uploading);
+                        },
+                      ),
                       const SizedBox(height: 20),
                       _buildTextField(nameController, 'Drink Name *'),
                       const SizedBox(height: 16),
@@ -153,37 +163,40 @@ class DiaryTabState extends State<DiaryTab> {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       TextButton(
-                        onPressed: () => Navigator.pop(context),
+                        onPressed:
+                            isUploading ? null : () => Navigator.pop(context),
                         child: const Text('Cancel',
                             style: TextStyle(color: AppTheme.textSecondary)),
                       ),
                       const SizedBox(width: 12),
                       ElevatedButton(
-                        onPressed: () {
-                          if (nameController.text.trim().isEmpty) {
-                            widget.showToast('Please enter drink name',
-                                isError: true);
-                            return;
-                          }
+                        onPressed: isUploading
+                            ? null
+                            : () {
+                                if (nameController.text.trim().isEmpty) {
+                                  widget.showToast('Please enter drink name',
+                                      isError: true);
+                                  return;
+                                }
 
-                          Navigator.pop(context);
-                          addDiaryEntry(
-                            bevName: nameController.text.trim(),
-                            restaurant: restaurantController.text.trim(),
-                            rating: rating,
-                            notes: notesController.text.trim(),
-                            image: uploadedImageUrl,
-                            sharedToFeed: shareToFeed,
-                          );
-                        },
+                                Navigator.pop(context);
+                                addDiaryEntry(
+                                  bevName: nameController.text.trim(),
+                                  restaurant: restaurantController.text.trim(),
+                                  rating: rating,
+                                  notes: notesController.text.trim(),
+                                  image: uploadedImageUrl,
+                                  sharedToFeed: shareToFeed,
+                                );
+                              },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppTheme.primary,
                           foregroundColor: Colors.black,
                           padding: const EdgeInsets.symmetric(
                               horizontal: 24, vertical: 12),
                         ),
-                        child: const Text('Save Entry',
-                            style: TextStyle(
+                        child: Text(isUploading ? 'Uploading...' : 'Save Entry',
+                            style: const TextStyle(
                                 color: Colors.black,
                                 fontWeight: FontWeight.bold)),
                       ),
@@ -199,20 +212,37 @@ class DiaryTabState extends State<DiaryTab> {
   }
 
   Widget _buildPhotoUpload(
-      StateSetter setState, String? imageUrl, Function(String?) onUpload) {
+    StateSetter setState,
+    String? imageUrl,
+    bool isUploading,
+    Function(String?) onUpload,
+    Function(bool) setUploading,
+  ) {
     return GestureDetector(
-      onTap: () async {
-        final url = await widget.cameraService.pickAndUpload(
-          context: context,
-          bucket: 'diary-photos',
-          folder: 'user-${_supabase.auth.currentUser?.id}',
-        );
+      onTap: isUploading
+          ? null
+          : () async {
+              setUploading(true);
 
-        if (url != null) {
-          onUpload(url);
-          widget.showToast('Photo uploaded successfully');
-        }
-      },
+              final url = await widget.cameraService.pickAndUpload(
+                context: context,
+                bucket: 'diary-photos',
+                folder: 'user-${_supabase.auth.currentUser?.id}',
+                onProgress: (status) {
+                  print('Upload status: $status');
+                },
+              );
+
+              setUploading(false);
+
+              if (url != null) {
+                onUpload(url);
+                widget.showToast('Photo uploaded successfully');
+              } else {
+                widget.showToast('Photo upload cancelled or failed',
+                    isError: false);
+              }
+            },
       child: Container(
         height: 140,
         width: double.infinity,
@@ -225,50 +255,64 @@ class DiaryTabState extends State<DiaryTab> {
                   image: NetworkImage(imageUrl), fit: BoxFit.cover)
               : null,
         ),
-        child: imageUrl == null
-            ? Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primary.withOpacity(0.2),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.add_a_photo,
-                        color: AppTheme.primary, size: 32),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text('Add Photo',
-                      style: TextStyle(
-                          color: AppTheme.textSecondary,
-                          fontWeight: FontWeight.w500)),
-                  const SizedBox(height: 4),
-                  const Text('Camera or Gallery',
-                      style: TextStyle(
-                          color: AppTheme.textTertiary, fontSize: 11)),
-                ],
+        child: isUploading
+            ? const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(color: AppTheme.primary),
+                    SizedBox(height: 12),
+                    Text('Uploading...',
+                        style: TextStyle(
+                            color: AppTheme.textSecondary,
+                            fontWeight: FontWeight.w500)),
+                  ],
+                ),
               )
-            : Stack(
-                children: [
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: GestureDetector(
-                      onTap: () => onUpload(null),
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(
-                          color: Colors.black54,
+            : imageUrl == null
+                ? Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primary.withOpacity(0.2),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.close,
-                            color: Colors.white, size: 20),
+                        child: const Icon(Icons.add_a_photo,
+                            color: AppTheme.primary, size: 32),
                       ),
-                    ),
+                      const SizedBox(height: 12),
+                      const Text('Add Photo',
+                          style: TextStyle(
+                              color: AppTheme.textSecondary,
+                              fontWeight: FontWeight.w500)),
+                      const SizedBox(height: 4),
+                      const Text('Camera or Gallery',
+                          style: TextStyle(
+                              color: AppTheme.textTertiary, fontSize: 11)),
+                    ],
+                  )
+                : Stack(
+                    children: [
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: GestureDetector(
+                          onTap: () => onUpload(null),
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: const BoxDecoration(
+                              color: Colors.black54,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.close,
+                                color: Colors.white, size: 20),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
       ),
     );
   }

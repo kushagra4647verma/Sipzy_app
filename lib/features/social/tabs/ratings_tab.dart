@@ -18,10 +18,19 @@ class RatingsTab extends StatelessWidget {
       return _buildEmptyState(context);
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: ratings.length,
-      itemBuilder: (_, i) => _RatingCard(rating: ratings[i]),
+    return RefreshIndicator(
+      onRefresh: () async {
+        onRefresh();
+        await Future.delayed(const Duration(milliseconds: 500));
+      },
+      color: AppTheme.primary,
+      backgroundColor: AppTheme.card,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        physics: const AlwaysScrollableScrollPhysics(),
+        itemCount: ratings.length,
+        itemBuilder: (_, i) => _RatingCard(rating: ratings[i]),
+      ),
     );
   }
 
@@ -30,18 +39,42 @@ class RatingsTab extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.star_border_rounded, size: 64, color: Colors.grey[700]),
-          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  AppTheme.primary.withOpacity(0.2),
+                  Colors.transparent,
+                ],
+              ),
+            ),
+            child: Icon(Icons.star_border_rounded,
+                size: 64, color: Colors.grey[700]),
+          ),
+          const SizedBox(height: 24),
           const Text(
             'No ratings yet',
             style: TextStyle(
-                color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500),
+                color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
           const Text(
-            'Start rating beverages to build\nyour credibility',
+            'Start rating beverages to build\nyour credibility and earn badges',
             textAlign: TextAlign.center,
             style: TextStyle(color: AppTheme.textSecondary, fontSize: 14),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: () => context.go('/'),
+            icon: const Icon(Icons.local_bar_rounded, size: 20),
+            label: const Text('Explore Beverages'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primary,
+              foregroundColor: Colors.black,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            ),
           ),
         ],
       ),
@@ -64,15 +97,16 @@ class _RatingCard extends StatelessWidget {
     final restaurantName = rating['restaurant_name'] ??
         rating['restaurantName'] ??
         beverage['restaurant_name'] ??
+        rating['restaurant']?.toString() ??
         '';
-    final userRating = rating['rating'] ?? 0;
+    final userRating = (rating['rating'] ?? 0).toInt();
     final comments = rating['comments'] ?? '';
     final createdAt = rating['createdAt'] ?? rating['created_at'] ?? '';
-    final photo = beverage['photo'] ?? rating['photo'];
+    final photo = beverage['photo'] ?? rating['photo'] ?? beverage['image'];
 
     return GestureDetector(
       onTap: () {
-        if (beverageId != null) {
+        if (beverageId != null && beverageId.toString().isNotEmpty) {
           context.push('/beverage/$beverageId');
         }
       },
@@ -82,6 +116,9 @@ class _RatingCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: const Color(0xFF2A2A2A),
           borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: AppTheme.border.withOpacity(0.5),
+          ),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -102,6 +139,8 @@ class _RatingCard extends StatelessWidget {
                       fontWeight: FontWeight.bold,
                       fontSize: 15,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
                   // Restaurant Name
@@ -112,9 +151,11 @@ class _RatingCard extends StatelessWidget {
                         color: AppTheme.textSecondary,
                         fontSize: 13,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   const SizedBox(height: 8),
-                  // Rating Stars
+                  // Rating Stars & Date
                   Row(
                     children: [
                       ...List.generate(
@@ -143,6 +184,7 @@ class _RatingCard extends StatelessWidget {
                       style: const TextStyle(
                         color: AppTheme.textSecondary,
                         fontSize: 13,
+                        fontStyle: FontStyle.italic,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -150,6 +192,12 @@ class _RatingCard extends StatelessWidget {
                   ],
                 ],
               ),
+            ),
+            // Chevron
+            const Icon(
+              Icons.chevron_right,
+              color: AppTheme.textTertiary,
+              size: 20,
             ),
           ],
         ),
@@ -167,6 +215,10 @@ class _RatingCard extends StatelessWidget {
               height: 70,
               fit: BoxFit.cover,
               errorBuilder: (_, __, ___) => _buildPlaceholder(),
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return _buildPlaceholder();
+              },
             )
           : _buildPlaceholder(),
     );
@@ -189,9 +241,21 @@ class _RatingCard extends StatelessWidget {
   }
 
   String _formatDate(String dateStr) {
+    if (dateStr.isEmpty) return '';
     try {
       final date = DateTime.parse(dateStr);
-      return '${date.day}/${date.month}/${date.year}';
+      final now = DateTime.now();
+      final difference = now.difference(date);
+
+      if (difference.inDays == 0) {
+        return 'Today';
+      } else if (difference.inDays == 1) {
+        return 'Yesterday';
+      } else if (difference.inDays < 7) {
+        return '${difference.inDays} days ago';
+      } else {
+        return '${date.day}/${date.month}/${date.year}';
+      }
     } catch (e) {
       return dateStr;
     }

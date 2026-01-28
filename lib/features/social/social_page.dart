@@ -1,60 +1,49 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../services/user_service.dart';
-import '../../services/camera_service.dart';
 import '../../core/theme/app_theme.dart';
-import '../../shared/navigation/bottom_nav.dart';
-import '../../ui/toast/sipzy_toast.dart';
-import 'widgets/profile_header.dart';
-import 'tabs/ratings_tab.dart';
-import 'tabs/diary_tab.dart';
+import '../../services/user_service.dart';
+import '../../services/supabase_service.dart';
 import 'tabs/badges_tab.dart';
-import 'tabs/saves_tab.dart';
+import 'tabs/diary_tab.dart';
 import 'tabs/friends_tab.dart';
+import 'tabs/ratings_tab.dart';
+import 'tabs/saves_tab.dart';
 
-class SocialPage extends StatefulWidget {
-  final Map<String, dynamic> user;
-  final VoidCallback onLogout;
+class ProfilePageSimple extends StatefulWidget {
+  final String? userId; // null for current user
 
-  const SocialPage({super.key, required this.user, required this.onLogout});
+  const ProfilePageSimple({super.key, this.userId});
 
   @override
-  State<SocialPage> createState() => _SocialPageState();
+  State<ProfilePageSimple> createState() => _ProfilePageSimpleState();
 }
 
-class _SocialPageState extends State<SocialPage>
+class _ProfilePageSimpleState extends State<ProfilePageSimple>
     with SingleTickerProviderStateMixin {
-  final _supabase = Supabase.instance.client;
   final _userService = UserService();
-  final _cameraService = CameraService();
+  final _supabaseService = SupabaseService();
 
   late TabController _tabController;
 
-  bool loading = true;
-  bool hasError = false;
+  // Profile data
+  Map<String, dynamic> _profile = {};
+  Map<String, dynamic> _stats = {};
 
-  Map<String, dynamic> stats = {
-    'ratingsCount': 0,
-    'friendsCount': 0,
-    'badgesCount': 0,
-  };
+  // Tab data
+  List _badges = [];
+  List _diaryEntries = [];
+  List _friends = [];
+  List _ratings = [];
+  List _bookmarks = [];
 
-  List ratings = [];
-  List diaryEntries = [];
-  List badges = [];
-  List bookmarks = [];
-  List friends = [];
+  bool _isLoading = true;
+  bool _isCurrentUser = true;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 5, vsync: this);
-    _tabController.addListener(() {
-      if (mounted) setState(() {});
-    });
-    fetchAll();
+    _checkIfCurrentUser();
+    _loadAllData();
   }
 
   @override
@@ -63,295 +52,360 @@ class _SocialPageState extends State<SocialPage>
     super.dispose();
   }
 
-  Future<void> fetchAll() async {
-    setState(() {
-      loading = true;
-      hasError = false;
-    });
+  void _checkIfCurrentUser() {
+    final currentUserId = _supabaseService.currentUser?.id;
+    _isCurrentUser = widget.userId == null || widget.userId == currentUserId;
+  }
+
+  Future<void> _loadAllData() async {
+    setState(() => _isLoading = true);
 
     try {
-      final userId =
-          _supabase.auth.currentUser?.id ?? widget.user['id']?.toString() ?? '';
-
-      final results = await Future.wait([
-        _userService.getUserRatings(userId),
-        _userService.getDiary(),
-        _userService.getBookmarks(),
-        _userService.getFriends(),
-        _userService.getBadges(),
-        _userService.getUserStats(userId),
+      await Future.wait([
+        _loadProfile(),
+        _loadStats(),
+        _loadBadges(),
+        _loadDiary(),
+        _loadFriends(),
+        _loadRatings(),
+        _loadBookmarks(),
       ]);
-
-      if (mounted) {
-        setState(() {
-          ratings = (results[0] as List?) ?? [];
-          diaryEntries = (results[1] as List?) ?? [];
-          bookmarks = (results[2] as List?) ?? [];
-          friends = (results[3] as List?) ?? [];
-          badges = (results[4] as List?) ?? [];
-
-          final apiStats = results[5] as Map<String, dynamic>;
-          stats = {
-            'ratingsCount': apiStats['ratingsCount'] ?? ratings.length,
-            'friendsCount': apiStats['friendsCount'] ?? friends.length,
-            'badgesCount': apiStats['badgesCount'] ??
-                badges.where((b) => b['earned'] == true).length,
-            'bookmarksCount': apiStats['bookmarksCount'] ?? bookmarks.length,
-            'diaryEntriesCount':
-                apiStats['diaryEntriesCount'] ?? diaryEntries.length,
-          };
-
-          hasError = false;
-        });
-      }
     } catch (e) {
-      print('❌ Social fetchAll error: $e');
-      if (mounted) {
-        setState(() => hasError = true);
-        _showToast('Failed to load profile data', isError: true);
-      }
+      print('❌ Error loading profile data: $e');
+      _showToast('Failed to load profile data', isError: true);
     } finally {
-      if (mounted) {
-        setState(() => loading = false);
-      }
+      setState(() => _isLoading = false);
     }
   }
 
-  Future<void> updateProfile(Map<String, dynamic> updates) async {
+  Future<void> _loadProfile() async {
     try {
-      final success = await _userService.updateProfile(updates);
-
-      if (success) {
-        _showToast('Profile updated');
-        final updatedProfile = await _userService.getMyProfile();
-        if (updatedProfile != null && mounted) {
-          setState(() {
-            widget.user.addAll(updatedProfile);
-          });
-        }
-      } else {
-        _showToast('Failed to update profile', isError: true);
-      }
+      final profile = await _userService.getMyProfile();
+      setState(() => _profile = profile);
     } catch (e) {
-      print('❌ Update profile error: $e');
-      _showToast('Error updating profile', isError: true);
+      print('❌ Error loading profile: $e');
     }
   }
 
-  void logout() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.card,
-        title: const Text('Logout', style: TextStyle(color: Colors.white)),
-        content: const Text(
-          'Are you sure you want to logout?',
-          style: TextStyle(color: AppTheme.textSecondary),
+  Future<void> _loadStats() async {
+    try {
+      final userId = widget.userId ?? _supabaseService.currentUser?.id ?? '';
+      final stats = await _userService.getUserStats(userId);
+      setState(() => _stats = stats);
+    } catch (e) {
+      print('❌ Error loading stats: $e');
+    }
+  }
+
+  Future<void> _loadBadges() async {
+    try {
+      final badges = await _userService.getMyBadges();
+      setState(() => _badges = badges);
+    } catch (e) {
+      print('❌ Error loading badges: $e');
+    }
+  }
+
+  Future<void> _loadDiary() async {
+    try {
+      final entries = await _userService.getAllDiaryEntries();
+      setState(() => _diaryEntries = entries);
+    } catch (e) {
+      print('❌ Error loading diary: $e');
+    }
+  }
+
+  Future<void> _loadFriends() async {
+    try {
+      final friends = await _userService.getAllFriends();
+      setState(() => _friends = friends);
+    } catch (e) {
+      print('❌ Error loading friends: $e');
+    }
+  }
+
+  Future<void> _loadRatings() async {
+    try {
+      final userId = widget.userId ?? _supabaseService.currentUser?.id ?? '';
+      final ratings = await _userService.getUserRatings(userId);
+      setState(() => _ratings = ratings);
+    } catch (e) {
+      print('❌ Error loading ratings: $e');
+    }
+  }
+
+  Future<void> _loadBookmarks() async {
+    try {
+      final bookmarks = await _userService.getAllBookmarks();
+      setState(() => _bookmarks = bookmarks);
+    } catch (e) {
+      print('❌ Error loading bookmarks: $e');
+    }
+  }
+
+  void _showToast(String message, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.red : AppTheme.primary,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppTheme.background,
+      appBar: AppBar(
+        backgroundColor: AppTheme.background,
+        elevation: 0,
+        title: Text(
+          _profile['name'] ?? 'Profile',
+          style: const TextStyle(color: Colors.white),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+          if (_isCurrentUser)
+            IconButton(
+              onPressed: () {
+                // Navigate to edit profile or settings
+              },
+              icon: const Icon(Icons.settings, color: Colors.white),
+            ),
+        ],
+      ),
+      body: _isLoading ? _buildLoadingState() : _buildContent(),
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return const Center(
+      child: CircularProgressIndicator(color: AppTheme.primary),
+    );
+  }
+
+  Widget _buildContent() {
+    return Column(
+      children: [
+        _buildProfileHeader(),
+        const SizedBox(height: 16),
+        _buildTabBar(),
+        Expanded(child: _buildTabView()),
+      ],
+    );
+  }
+
+  Widget _buildProfileHeader() {
+    final name = _profile['name'] ?? 'User';
+    final username = _profile['username'] ?? '';
+    final bio = _profile['bio'] ?? '';
+    final location = _profile['location'] ?? _profile['city'] ?? '';
+    final photo = _profile['photo'] ?? _profile['profile_photo'];
+
+    final ratingsCount = _stats['ratingsCount'] ?? 0;
+    final friendsCount = _stats['friendsCount'] ?? 0;
+    final bookmarksCount = _bookmarks.length;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          // Profile Picture
+          _buildProfilePicture(photo),
+          const SizedBox(height: 16),
+          // Name
+          Text(
+            name,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              widget.onLogout();
-              context.go('/auth');
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Logout', style: TextStyle(color: Colors.white)),
+          if (username.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              '@$username',
+              style: const TextStyle(
+                color: AppTheme.textSecondary,
+                fontSize: 14,
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          // Bio
+          if (bio.isNotEmpty) ...[
+            Text(
+              bio,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: AppTheme.textSecondary,
+                fontSize: 14,
+              ),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 8),
+          ],
+          // Location
+          if (location.isNotEmpty)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.location_on,
+                  color: AppTheme.textTertiary,
+                  size: 16,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  location,
+                  style: const TextStyle(
+                    color: AppTheme.textSecondary,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          const SizedBox(height: 20),
+          // Stats
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _buildStatItem('Ratings', ratingsCount),
+              _buildStatItem('Friends', friendsCount),
+              _buildStatItem('Saves', bookmarksCount),
+            ],
           ),
         ],
       ),
     );
   }
 
-  void _showToast(String msg, {bool isError = false}) {
-    if (!mounted) return;
-    SipzyToast.show(
-      context,
-      title: msg,
-      type: isError ? ToastType.destructive : ToastType.normal,
+  Widget _buildProfilePicture(dynamic photo) {
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: AppTheme.primary, width: 3),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primary.withOpacity(0.3),
+            blurRadius: 20,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+      child: CircleAvatar(
+        radius: 50,
+        backgroundColor: AppTheme.glassLight,
+        backgroundImage: photo != null && photo.toString().isNotEmpty
+            ? NetworkImage(photo.toString())
+            : null,
+        child: photo == null || photo.toString().isEmpty
+            ? const Icon(Icons.person, size: 50, color: AppTheme.textTertiary)
+            : null,
+      ),
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    if (loading) {
-      return Scaffold(
-        backgroundColor: AppTheme.background,
-        body: SafeArea(child: _buildLoadingSkeleton()),
-        bottomNavigationBar: const BottomNav(active: 'social'),
-      );
-    }
-
-    if (hasError) {
-      return Scaffold(
-        backgroundColor: AppTheme.background,
-        body: SafeArea(child: _buildErrorState()),
-        bottomNavigationBar: const BottomNav(active: 'social'),
-      );
-    }
-
-    return Scaffold(
-      backgroundColor: AppTheme.background,
-      body: SafeArea(
-        child: Column(
-          children: [
-            ProfileHeader(
-              user: widget.user,
-              stats: stats,
-              onEditProfile: updateProfile,
-              onLogout: logout,
-            ),
-            _buildTabBar(),
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  RatingsTab(ratings: ratings, onRefresh: fetchAll),
-                  DiaryTab(
-                    diaryEntries: diaryEntries,
-                    cameraService: _cameraService,
-                    userService: _userService,
-                    onRefresh: fetchAll,
-                    showToast: _showToast,
-                  ),
-                  BadgesTab(
-                    badges: badges,
-                    stats: stats,
-                    bookmarks: bookmarks,
-                    onRefresh: fetchAll,
-                  ),
-                  SavesTab(
-                    bookmarks: bookmarks,
-                    userService: _userService,
-                    onRefresh: fetchAll,
-                    showToast: _showToast,
-                  ),
-                  FriendsTab(
-                    friends: friends,
-                    userService: _userService,
-                    onRefresh: fetchAll,
-                    showToast: _showToast,
-                  ),
-                ],
-              ),
-            ),
-            _buildLogoutButton(),
-          ],
+  Widget _buildStatItem(String label, int count) {
+    return Column(
+      children: [
+        Text(
+          count.toString(),
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+          ),
         ),
-      ),
-      bottomNavigationBar: const BottomNav(active: 'social'),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: const TextStyle(
+            color: AppTheme.textSecondary,
+            fontSize: 13,
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildTabBar() {
     return Container(
       color: AppTheme.background,
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-      child: Row(
-        children: [
-          _buildTab('Ratings', 0),
-          _buildTab('Diary', 1),
-          _buildTab('Badges', 2),
-          _buildTab('Saves', 3),
-          _buildTab('Friends', 4),
+      child: TabBar(
+        controller: _tabController,
+        isScrollable: true,
+        tabAlignment: TabAlignment.start,
+        indicatorColor: AppTheme.primary,
+        indicatorWeight: 3,
+        labelColor: AppTheme.primary,
+        unselectedLabelColor: AppTheme.textSecondary,
+        labelStyle: const TextStyle(
+          fontWeight: FontWeight.w600,
+          fontSize: 13,
+        ),
+        unselectedLabelStyle: const TextStyle(
+          fontWeight: FontWeight.w500,
+          fontSize: 13,
+        ),
+        tabs: const [
+          Tab(
+            icon: Icon(Icons.emoji_events, size: 20),
+            text: 'Badges',
+          ),
+          Tab(
+            icon: Icon(Icons.book, size: 20),
+            text: 'Diary',
+          ),
+          Tab(
+            icon: Icon(Icons.group, size: 20),
+            text: 'Friends',
+          ),
+          Tab(
+            icon: Icon(Icons.star, size: 20),
+            text: 'Ratings',
+          ),
+          Tab(
+            icon: Icon(Icons.bookmark, size: 20),
+            text: 'Saves',
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildTab(String label, int index) {
-    final isActive = _tabController.index == index;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => _tabController.animateTo(index),
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 4),
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            gradient: isActive
-                ? const LinearGradient(
-                    colors: [Color(0xFFF5A623), Color(0xFFFFCC70)])
-                : null,
-            color: isActive ? null : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: isActive ? Colors.black : AppTheme.textSecondary,
-              fontSize: 13,
-              fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-            ),
-          ),
+  Widget _buildTabView() {
+    return TabBarView(
+      controller: _tabController,
+      children: [
+        BadgesTab(
+          badges: _badges,
+          stats: _stats,
+          bookmarks: _bookmarks,
+          onRefresh: _loadAllData,
         ),
-      ),
-    );
-  }
-
-  Widget _buildLogoutButton() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      child: SizedBox(
-        width: double.infinity,
-        child: ElevatedButton.icon(
-          onPressed: logout,
-          icon: const Icon(Icons.logout, size: 18, color: Colors.white),
-          label: const Text('Logout',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600)),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF7F1D1D),
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
+        DiaryTab(
+          entries: _diaryEntries,
+          onRefresh: _loadAllData,
         ),
-      ),
-    );
-  }
-
-  Widget _buildLoadingSkeleton() {
-    return const Center(
-      child: CircularProgressIndicator(color: AppTheme.primary),
-    );
-  }
-
-  Widget _buildErrorState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.cloud_off_rounded,
-                size: 64, color: AppTheme.textTertiary),
-            const SizedBox(height: 16),
-            Text('Unable to load profile',
-                style: Theme.of(context).textTheme.titleMedium,
-                textAlign: TextAlign.center),
-            const SizedBox(height: 8),
-            Text('Check your connection and try again',
-                style: Theme.of(context).textTheme.bodySmall,
-                textAlign: TextAlign.center),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: fetchAll,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primary,
-                foregroundColor: Colors.black,
-              ),
-              child: const Text('Retry'),
-            ),
-          ],
+        FriendsTab(
+          friends: _friends,
+          onRefresh: _loadAllData,
         ),
-      ),
+        RatingsTab(
+          ratings: _ratings,
+          onRefresh: _loadAllData,
+        ),
+        SavesTab(
+          bookmarks: _bookmarks,
+          userService: _userService,
+          onRefresh: _loadAllData,
+          showToast: _showToast,
+        ),
+      ],
     );
   }
 }
