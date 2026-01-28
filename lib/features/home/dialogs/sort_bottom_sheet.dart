@@ -3,13 +3,28 @@ import '../../../core/theme/app_theme.dart';
 
 class SortBottomSheet extends StatelessWidget {
   final String currentSort;
-  final Function(String) onSortSelected;
+  final Function(String sortBy) onSortSelected;
 
   const SortBottomSheet({
     super.key,
     required this.currentSort,
     required this.onSortSelected,
   });
+
+  String _getSortLabel(String value) {
+    switch (value) {
+      case 'rating':
+        return 'Highest Rating';
+      case 'distance':
+        return 'Nearest First';
+      case 'cost_low':
+        return 'Cost: Low to High';
+      case 'cost_high':
+        return 'Cost: High to Low';
+      default:
+        return 'Highest Rating';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,23 +43,24 @@ class SortBottomSheet extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          _buildSortOption('Highest Rating', 'rating'),
-          _buildSortOption('Nearest First', 'distance'),
-          _buildSortOption('Cost Low to High', 'cost_low'),
-          _buildSortOption('Cost High to Low', 'cost_high'),
+          _buildSortOption(context, 'Highest Rating', 'rating'),
+          _buildSortOption(context, 'Nearest First', 'distance'),
+          _buildSortOption(context, 'Cost Low to High', 'cost_low'),
+          _buildSortOption(context, 'Cost High to Low', 'cost_high'),
           const SizedBox(height: 8),
         ],
       ),
     );
   }
 
-  Widget _buildSortOption(String label, String value) {
+  Widget _buildSortOption(BuildContext context, String label, String value) {
     final isSelected = currentSort == value;
 
     return InkWell(
       borderRadius: BorderRadius.circular(AppTheme.radiusMd),
       onTap: () {
         onSortSelected(value);
+        Navigator.pop(context);
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),

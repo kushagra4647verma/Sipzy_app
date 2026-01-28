@@ -2,19 +2,13 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 
 class EmptyStateWidget extends StatelessWidget {
-  final String message;
-  final String? submessage;
-  final VoidCallback? onAction;
-  final String? actionLabel;
-  final IconData? icon;
+  final String searchQuery;
+  final VoidCallback? onClearSearch;
 
   const EmptyStateWidget({
     super.key,
-    required this.message,
-    this.submessage,
-    this.onAction,
-    this.actionLabel,
-    this.icon,
+    required this.searchQuery,
+    this.onClearSearch,
   });
 
   @override
@@ -27,30 +21,26 @@ class EmptyStateWidget extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                icon ?? Icons.restaurant_rounded,
+              const Icon(
+                Icons.restaurant_rounded,
                 size: 64,
                 color: AppTheme.textTertiary,
               ),
               const SizedBox(height: 16),
               Text(
-                message,
+                'No restaurants found',
                 style: Theme.of(context).textTheme.titleMedium,
-                textAlign: TextAlign.center,
               ),
-              if (submessage != null) ...[
+              if (searchQuery.isNotEmpty && onClearSearch != null) ...[
                 const SizedBox(height: 8),
                 Text(
-                  submessage!,
+                  'Try a different search term',
                   style: Theme.of(context).textTheme.bodySmall,
-                  textAlign: TextAlign.center,
                 ),
-              ],
-              if (onAction != null && actionLabel != null) ...[
                 const SizedBox(height: 24),
                 AppTheme.gradientButtonAmber(
-                  onPressed: onAction!,
-                  child: Text(actionLabel!),
+                  onPressed: onClearSearch!,
+                  child: const Text('Clear Search'),
                 ),
               ],
             ],

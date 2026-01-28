@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 
-class FilterData {
+class FilterBottomSheet extends StatefulWidget {
   final List<String> selectedCuisines;
   final Set<String> selectedBaseDrinks;
   final Set<String> selectedRestaurantTypes;
@@ -9,8 +9,10 @@ class FilterData {
   final double maxDistance;
   final double minCost;
   final double maxCost;
+  final Function(Map<String, dynamic> filters) onApply;
 
-  FilterData({
+  const FilterBottomSheet({
+    super.key,
     required this.selectedCuisines,
     required this.selectedBaseDrinks,
     required this.selectedRestaurantTypes,
@@ -18,43 +20,6 @@ class FilterData {
     required this.maxDistance,
     required this.minCost,
     required this.maxCost,
-  });
-
-  FilterData copyWith({
-    List<String>? selectedCuisines,
-    Set<String>? selectedBaseDrinks,
-    Set<String>? selectedRestaurantTypes,
-    double? minRating,
-    double? maxDistance,
-    double? minCost,
-    double? maxCost,
-  }) {
-    return FilterData(
-      selectedCuisines: selectedCuisines ?? this.selectedCuisines,
-      selectedBaseDrinks: selectedBaseDrinks ?? this.selectedBaseDrinks,
-      selectedRestaurantTypes:
-          selectedRestaurantTypes ?? this.selectedRestaurantTypes,
-      minRating: minRating ?? this.minRating,
-      maxDistance: maxDistance ?? this.maxDistance,
-      minCost: minCost ?? this.minCost,
-      maxCost: maxCost ?? this.maxCost,
-    );
-  }
-}
-
-class FilterBottomSheet extends StatefulWidget {
-  final List<String> cuisines;
-  final List<String> baseDrinks;
-  final List<String> restaurantTypes;
-  final FilterData initialFilters;
-  final Function(FilterData) onApply;
-
-  const FilterBottomSheet({
-    super.key,
-    required this.cuisines,
-    required this.baseDrinks,
-    required this.restaurantTypes,
-    required this.initialFilters,
     required this.onApply,
   });
 
@@ -71,17 +36,46 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
   late double minCost;
   late double maxCost;
 
+  final cuisines = [
+    'Indian',
+    'Continental',
+    'Asian',
+    'Mediterranean',
+    'Italian',
+    'Chinese'
+  ];
+
+  final baseDrinks = [
+    'Whisky',
+    'Rum',
+    'Vodka',
+    'Gin',
+    'Beer',
+    'Wine',
+    'Water',
+    'Soda',
+    'Milk',
+    'Juice'
+  ];
+
+  final restaurantTypes = [
+    'Fine Dining',
+    'Casual',
+    'Romantic',
+    'Gastropub',
+    'Brewery'
+  ];
+
   @override
   void initState() {
     super.initState();
-    selectedCuisines = List.from(widget.initialFilters.selectedCuisines);
-    selectedBaseDrinks = Set.from(widget.initialFilters.selectedBaseDrinks);
-    selectedRestaurantTypes =
-        Set.from(widget.initialFilters.selectedRestaurantTypes);
-    minRating = widget.initialFilters.minRating;
-    maxDistance = widget.initialFilters.maxDistance;
-    minCost = widget.initialFilters.minCost;
-    maxCost = widget.initialFilters.maxCost;
+    selectedCuisines = List.from(widget.selectedCuisines);
+    selectedBaseDrinks = Set.from(widget.selectedBaseDrinks);
+    selectedRestaurantTypes = Set.from(widget.selectedRestaurantTypes);
+    minRating = widget.minRating;
+    maxDistance = widget.maxDistance;
+    minCost = widget.minCost;
+    maxCost = widget.maxCost;
   }
 
   void _clearAll() {
@@ -96,16 +90,16 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
     });
   }
 
-  void _apply() {
-    widget.onApply(FilterData(
-      selectedCuisines: selectedCuisines,
-      selectedBaseDrinks: selectedBaseDrinks,
-      selectedRestaurantTypes: selectedRestaurantTypes,
-      minRating: minRating,
-      maxDistance: maxDistance,
-      minCost: minCost,
-      maxCost: maxCost,
-    ));
+  void _applyFilters() {
+    widget.onApply({
+      'selectedCuisines': selectedCuisines,
+      'selectedBaseDrinks': selectedBaseDrinks,
+      'selectedRestaurantTypes': selectedRestaurantTypes,
+      'minRating': minRating,
+      'maxDistance': maxDistance,
+      'minCost': minCost,
+      'maxCost': maxCost,
+    });
     Navigator.pop(context);
   }
 
@@ -124,274 +118,240 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
               mainAxisSize: MainAxisSize.max,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildHeader(),
+                // HEADER
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Filters',
+                      style: TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    InkWell(
+                      onTap: () => Navigator.pop(context),
+                      child: const Icon(
+                        Icons.close,
+                        color: AppTheme.primary,
+                        size: 22,
+                      ),
+                    ),
+                  ],
+                ),
+
                 const SizedBox(height: 24),
-                _buildCuisineSection(),
+
+                // CUISINE
+                const Text(
+                  'Cuisine',
+                  style: TextStyle(
+                    color: AppTheme.textSecondary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: cuisines.map((cuisine) {
+                    final isSelected = selectedCuisines.contains(cuisine);
+                    return _filterChip(
+                      label: cuisine,
+                      isSelected: isSelected,
+                      onTap: () {
+                        setState(() {
+                          if (isSelected) {
+                            selectedCuisines.remove(cuisine);
+                          } else {
+                            selectedCuisines.clear();
+                            selectedCuisines.add(cuisine);
+                          }
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+
                 const SizedBox(height: 24),
-                _buildBaseDrinkSection(),
+
+                // BASE DRINK
+                const Text(
+                  'Base Drink',
+                  style: TextStyle(
+                    color: AppTheme.textSecondary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: baseDrinks.map((drink) {
+                    final isSelected = selectedBaseDrinks.contains(drink);
+                    return _filterChip(
+                      label: drink,
+                      isSelected: isSelected,
+                      onTap: () {
+                        setState(() {
+                          if (isSelected) {
+                            selectedBaseDrinks.remove(drink);
+                          } else {
+                            selectedBaseDrinks.add(drink);
+                          }
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+
                 const SizedBox(height: 24),
-                _buildRatingSection(),
+
+                // RATING
+                Text(
+                  'SipZy Rating: ${minRating.toStringAsFixed(1)}+ stars',
+                  style: const TextStyle(
+                    color: AppTheme.textSecondary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Slider(
+                  value: minRating,
+                  min: 0,
+                  max: 5,
+                  divisions: 10,
+                  activeColor: AppTheme.primary,
+                  inactiveColor: AppTheme.border,
+                  onChanged: (value) {
+                    setState(() => minRating = value);
+                  },
+                ),
+
                 const SizedBox(height: 16),
-                _buildDistanceSection(),
+
+                // DISTANCE
+                Text(
+                  'Distance: Up to ${maxDistance.toStringAsFixed(1)} km',
+                  style: const TextStyle(
+                    color: AppTheme.textSecondary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Slider(
+                  value: maxDistance,
+                  min: 0,
+                  max: 10,
+                  divisions: 20,
+                  activeColor: AppTheme.primary,
+                  inactiveColor: AppTheme.border,
+                  onChanged: (value) {
+                    setState(() => maxDistance = value);
+                  },
+                ),
+
                 const SizedBox(height: 24),
-                _buildRestaurantTypeSection(),
+
+                // RESTAURANT TYPE
+                const Text(
+                  'Restaurant Type',
+                  style: TextStyle(
+                    color: AppTheme.textSecondary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: restaurantTypes.map((type) {
+                    final isSelected = selectedRestaurantTypes.contains(type);
+                    return _filterChip(
+                      label: type,
+                      isSelected: isSelected,
+                      onTap: () {
+                        setState(() {
+                          if (isSelected) {
+                            selectedRestaurantTypes.remove(type);
+                          } else {
+                            selectedRestaurantTypes.add(type);
+                          }
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+
                 const SizedBox(height: 24),
-                _buildCostSection(),
+
+                // COST FOR TWO
+                Text(
+                  'Cost for Two: ₹${minCost.toInt()} - ₹${maxCost.toInt()}',
+                  style: const TextStyle(
+                    color: AppTheme.textSecondary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                RangeSlider(
+                  values: RangeValues(minCost, maxCost),
+                  min: 0,
+                  max: 5000,
+                  divisions: 50,
+                  activeColor: AppTheme.primary,
+                  inactiveColor: AppTheme.border,
+                  onChanged: (values) {
+                    setState(() {
+                      minCost = values.start;
+                      maxCost = values.end;
+                    });
+                  },
+                ),
+
                 const SizedBox(height: 32),
-                _buildActionButtons(),
+
+                // ACTION BUTTONS
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _clearAll,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.textPrimary,
+                          side: const BorderSide(color: AppTheme.border),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius:
+                                BorderRadius.circular(AppTheme.radiusMd),
+                          ),
+                        ),
+                        child: const Text('Clear All'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: AppTheme.gradientButtonAmber(
+                        onPressed: _applyFilters,
+                        child: const Text('Apply Filters'),
+                      ),
+                    ),
+                  ],
+                ),
+
                 const SizedBox(height: 16),
               ],
             ),
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        const Text(
-          'Filters',
-          style: TextStyle(
-            color: AppTheme.textPrimary,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        InkWell(
-          onTap: () => Navigator.pop(context),
-          child: const Icon(
-            Icons.close,
-            color: AppTheme.primary,
-            size: 22,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCuisineSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Cuisine',
-          style: TextStyle(
-            color: AppTheme.textSecondary,
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: widget.cuisines.map((cuisine) {
-            final isSelected = selectedCuisines.contains(cuisine);
-            return _filterChip(
-              label: cuisine,
-              isSelected: isSelected,
-              onTap: () {
-                setState(() {
-                  if (isSelected) {
-                    selectedCuisines.remove(cuisine);
-                  } else {
-                    selectedCuisines.clear();
-                    selectedCuisines.add(cuisine);
-                  }
-                });
-              },
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildBaseDrinkSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Base Drink',
-          style: TextStyle(
-            color: AppTheme.textSecondary,
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: widget.baseDrinks.map((drink) {
-            final isSelected = selectedBaseDrinks.contains(drink);
-            return _filterChip(
-              label: drink,
-              isSelected: isSelected,
-              onTap: () {
-                setState(() {
-                  if (isSelected) {
-                    selectedBaseDrinks.remove(drink);
-                  } else {
-                    selectedBaseDrinks.add(drink);
-                  }
-                });
-              },
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildRatingSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'SipZy Rating: ${minRating.toStringAsFixed(1)}+ stars',
-          style: const TextStyle(
-            color: AppTheme.textSecondary,
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Slider(
-          value: minRating,
-          min: 0,
-          max: 5,
-          divisions: 10,
-          activeColor: AppTheme.primary,
-          inactiveColor: AppTheme.border,
-          onChanged: (value) => setState(() => minRating = value),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDistanceSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Distance: Up to ${maxDistance.toStringAsFixed(1)} km',
-          style: const TextStyle(
-            color: AppTheme.textSecondary,
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Slider(
-          value: maxDistance,
-          min: 0,
-          max: 10,
-          divisions: 20,
-          activeColor: AppTheme.primary,
-          inactiveColor: AppTheme.border,
-          onChanged: (value) => setState(() => maxDistance = value),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildRestaurantTypeSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Restaurant Type',
-          style: TextStyle(
-            color: AppTheme.textSecondary,
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: widget.restaurantTypes.map((type) {
-            final isSelected = selectedRestaurantTypes.contains(type);
-            return _filterChip(
-              label: type,
-              isSelected: isSelected,
-              onTap: () {
-                setState(() {
-                  if (isSelected) {
-                    selectedRestaurantTypes.remove(type);
-                  } else {
-                    selectedRestaurantTypes.add(type);
-                  }
-                });
-              },
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCostSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Cost for Two: ₹${minCost.toInt()} - ₹${maxCost.toInt()}',
-          style: const TextStyle(
-            color: AppTheme.textSecondary,
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 12),
-        RangeSlider(
-          values: RangeValues(minCost, maxCost),
-          min: 0,
-          max: 5000,
-          divisions: 50,
-          activeColor: AppTheme.primary,
-          inactiveColor: AppTheme.border,
-          onChanged: (values) {
-            setState(() {
-              minCost = values.start;
-              maxCost = values.end;
-            });
-          },
-        ),
-      ],
-    );
-  }
-
-  Widget _buildActionButtons() {
-    return Row(
-      children: [
-        Expanded(
-          child: OutlinedButton(
-            onPressed: _clearAll,
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppTheme.textPrimary,
-              side: const BorderSide(color: AppTheme.border),
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-              ),
-            ),
-            child: const Text('Clear All'),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: AppTheme.gradientButtonAmber(
-            onPressed: _apply,
-            child: const Text('Apply Filters'),
-          ),
-        ),
-      ],
     );
   }
 

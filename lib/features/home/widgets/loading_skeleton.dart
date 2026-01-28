@@ -3,18 +3,13 @@ import 'package:shimmer/shimmer.dart';
 import '../../../core/theme/app_theme.dart';
 
 class LoadingSkeleton extends StatelessWidget {
-  final int itemCount;
-
-  const LoadingSkeleton({
-    super.key,
-    this.itemCount = 3,
-  });
+  const LoadingSkeleton({super.key});
 
   @override
   Widget build(BuildContext context) {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: itemCount,
+      itemCount: 3,
       itemBuilder: (context, index) {
         return Shimmer.fromColors(
           baseColor: AppTheme.card,

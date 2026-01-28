@@ -1,26 +1,26 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/restaurant_service.dart';
 import '../../services/user_service.dart';
 import '../../services/location_service.dart';
 import '../../shared/navigation/bottom_nav.dart';
-import '../../shared/ui/share_modal.dart';
 import '../../shared/utils/keyboard_dismisser.dart';
 import '../../core/theme/app_theme.dart';
 
-// Import all the new widgets
+// Dialogs
+import 'dialogs/city_selector_sheet.dart';
+import 'dialogs/filter_bottom_sheet.dart';
+import 'dialogs/sort_bottom_sheet.dart';
+
+// Widgets
 import 'widgets/home_header.dart';
 import 'widgets/restaurant_card.dart';
 import 'widgets/featured_section.dart';
 import 'widgets/trending_section.dart';
-import 'widgets/empty_state_widget.dart';
 import 'widgets/loading_skeleton.dart';
 import 'widgets/error_state_widget.dart';
-import 'dialogs/filter_bottom_sheet.dart';
-import 'dialogs/sort_bottom_sheet.dart';
-import 'dialogs/city_selector_sheet.dart';
+import 'widgets/empty_state_widget.dart';
 
 class HomePage extends StatefulWidget {
   final Map<String, dynamic> user;
@@ -35,56 +35,27 @@ class _HomePageState extends State<HomePage> {
   final _restaurantService = RestaurantService();
   final _userService = UserService();
 
-  List restaurants = [];
-  List featuredRestaurants = [];
-  List trendingRestaurants = [];
+  // State
+  List<Map<String, dynamic>> restaurants = [];
+  List<Map<String, dynamic>> featuredRestaurants = [];
+  List<Map<String, dynamic>> trendingRestaurants = [];
   List<int> bookmarkedIds = [];
 
   bool loading = true;
   bool hasError = false;
   String searchQuery = '';
 
+  // Filters
   List<String> selectedCuisines = [];
+  Set<String> selectedBaseDrinks = {};
+  Set<String> selectedRestaurantTypes = {};
   double minRating = 0;
   double maxDistance = 10;
   double minCost = 0;
   double maxCost = 5000;
 
   String sortBy = 'rating';
-
-  final baseDrinks = [
-    'Whisky',
-    'Rum',
-    'Vodka',
-    'Gin',
-    'Beer',
-    'Wine',
-    'Water',
-    'Soda',
-    'Milk',
-    'Juice'
-  ];
-
-  Set<String> selectedBaseDrinks = {};
-
-  final restaurantTypes = [
-    'Fine Dining',
-    'Casual',
-    'Romantic',
-    'Gastropub',
-    'Brewery'
-  ];
-
-  Set<String> selectedRestaurantTypes = {};
-
-  final cuisines = [
-    'Indian',
-    'Continental',
-    'Asian',
-    'Mediterranean',
-    'Italian',
-    'Chinese'
-  ];
+  String selectedCity = 'Bangalore';
 
   final cities = [
     'Mumbai',
@@ -93,15 +64,9 @@ class _HomePageState extends State<HomePage> {
     'Hyderabad',
   ];
 
-  String selectedCity = 'Bangalore';
-
   @override
   void initState() {
     super.initState();
-    setState(() {
-      searchQuery = '';
-      sortBy = 'rating';
-    });
     _initializeLocation();
     _loadAll();
   }
@@ -112,6 +77,7 @@ class _HomePageState extends State<HomePage> {
 
     if (hasPermission) {
       final position = await locationService.getCurrentLocation();
+
       if (mounted && position != null && locationService.currentCity != null) {
         setState(() {
           selectedCity = locationService.currentCity!;
@@ -130,7 +96,9 @@ class _HomePageState extends State<HomePage> {
       await Future.wait([fetchRestaurants(), fetchBookmarks()]);
     } catch (e) {
       print('Error loading data: $e');
-      setState(() => hasError = true);
+      if (mounted) {
+        setState(() => hasError = true);
+      }
     }
   }
 
@@ -145,11 +113,11 @@ class _HomePageState extends State<HomePage> {
       final position = await locationService.getCurrentLocation();
       final cityToUse = locationService.currentCity ?? selectedCity;
 
-      setState(() {
-        if (locationService.currentCity != null) {
+      if (mounted && locationService.currentCity != null) {
+        setState(() {
           selectedCity = locationService.currentCity!;
-        }
-      });
+        });
+      }
 
       final fetchedRestaurants = await _restaurantService.getRestaurants(
         city: cityToUse,
@@ -164,10 +132,13 @@ class _HomePageState extends State<HomePage> {
 
       if (mounted) {
         setState(() {
-          restaurants = fetchedRestaurants;
+          restaurants = List<Map<String, dynamic>>.from(
+            fetchedRestaurants.map((r) => r is Map<String, dynamic> ? r : {}),
+          );
           hasError = false;
         });
 
+        // Fetch featured and trending only if no search/filters
         if (searchQuery.isEmpty && selectedCuisines.isEmpty && minRating == 0) {
           await _fetchFeaturedAndTrending(
             city: cityToUse,
@@ -185,7 +156,7 @@ class _HomePageState extends State<HomePage> {
       print('❌ Fetch restaurants error: $e');
       if (mounted) {
         setState(() => hasError = true);
-        _toast('Failed to load restaurants', isError: true);
+        _showToast('Failed to load restaurants', isError: true);
       }
     } finally {
       if (mounted) {
@@ -210,8 +181,12 @@ class _HomePageState extends State<HomePage> {
 
       if (mounted) {
         setState(() {
-          featuredRestaurants = results[0];
-          trendingRestaurants = results[1];
+          featuredRestaurants = List<Map<String, dynamic>>.from(
+            (results[0] as List).map((r) => r is Map<String, dynamic> ? r : {}),
+          );
+          trendingRestaurants = List<Map<String, dynamic>>.from(
+            (results[1] as List).map((r) => r is Map<String, dynamic> ? r : {}),
+          );
         });
       }
     } catch (e) {
@@ -250,13 +225,13 @@ class _HomePageState extends State<HomePage> {
       if (success) {
         await fetchBookmarks();
         if (mounted) {
-          _toast('Bookmark updated');
+          _showToast('Bookmark updated');
         }
       }
     } catch (e) {
       print('❌ Toggle bookmark error: $e');
       if (mounted) {
-        _toast('Failed to update bookmark', isError: true);
+        _showToast('Failed to update bookmark', isError: true);
       }
     }
   }
@@ -276,7 +251,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  void _toast(String msg, {bool isError = false}) {
+  void _showToast(String msg, {bool isError = false}) {
     if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -293,6 +268,25 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  void _showCitySelector() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => CitySelectorSheet(
+        selectedCity: selectedCity,
+        cities: cities,
+        onCitySelected: (city) {
+          setState(() => selectedCity = city);
+          fetchRestaurants();
+        },
+        onToast: _showToast,
+      ),
+    );
+  }
+
   void _showFilters() {
     showModalBottomSheet(
       context: context,
@@ -304,27 +298,22 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
       builder: (context) => FilterBottomSheet(
-        cuisines: cuisines,
-        baseDrinks: baseDrinks,
-        restaurantTypes: restaurantTypes,
-        initialFilters: FilterData(
-          selectedCuisines: selectedCuisines,
-          selectedBaseDrinks: selectedBaseDrinks,
-          selectedRestaurantTypes: selectedRestaurantTypes,
-          minRating: minRating,
-          maxDistance: maxDistance,
-          minCost: minCost,
-          maxCost: maxCost,
-        ),
+        selectedCuisines: selectedCuisines,
+        selectedBaseDrinks: selectedBaseDrinks,
+        selectedRestaurantTypes: selectedRestaurantTypes,
+        minRating: minRating,
+        maxDistance: maxDistance,
+        minCost: minCost,
+        maxCost: maxCost,
         onApply: (filters) {
           setState(() {
-            selectedCuisines = filters.selectedCuisines;
-            selectedBaseDrinks = filters.selectedBaseDrinks;
-            selectedRestaurantTypes = filters.selectedRestaurantTypes;
-            minRating = filters.minRating;
-            maxDistance = filters.maxDistance;
-            minCost = filters.minCost;
-            maxCost = filters.maxCost;
+            selectedCuisines = filters['selectedCuisines'];
+            selectedBaseDrinks = filters['selectedBaseDrinks'];
+            selectedRestaurantTypes = filters['selectedRestaurantTypes'];
+            minRating = filters['minRating'];
+            maxDistance = filters['maxDistance'];
+            minCost = filters['minCost'];
+            maxCost = filters['maxCost'];
           });
           fetchRestaurants();
         },
@@ -345,49 +334,20 @@ class _HomePageState extends State<HomePage> {
         currentSort: sortBy,
         onSortSelected: (value) {
           setState(() => sortBy = value);
-          Navigator.pop(context);
           fetchRestaurants();
         },
       ),
     );
   }
 
-  void _showCitySelector() {
-    final locationService = LocationService();
-
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) => CitySelectorSheet(
-        cities: cities,
-        selectedCity: selectedCity,
-        onCitySelected: (city) {
-          setState(() {
-            selectedCity = city;
-            locationService.setCity(city);
-          });
-          fetchRestaurants();
-        },
-        onUseCurrentLocation: () async {
-          final position =
-              await locationService.getCurrentLocation(forceRefresh: true);
-
-          if (mounted) {
-            if (position != null && locationService.currentCity != null) {
-              setState(() {
-                selectedCity = locationService.currentCity!;
-              });
-              fetchRestaurants();
-              _toast('Location updated to ${locationService.currentCity}');
-            } else {
-              _toast('Could not detect your city', isError: true);
-            }
-          }
-        },
-      ),
-    );
+  void _handleSearchChanged(String query) {
+    setState(() => searchQuery = query);
+    // Debounce search to avoid too many API calls
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (searchQuery == query && mounted) {
+        fetchRestaurants();
+      }
+    });
   }
 
   @override
@@ -400,23 +360,15 @@ class _HomePageState extends State<HomePage> {
             children: [
               HomeHeader(
                 selectedCity: selectedCity,
-                onCityTap: _showCitySelector,
                 searchQuery: searchQuery,
-                onSearchChanged: (v) {
-                  setState(() => searchQuery = v);
-                  Future.delayed(const Duration(milliseconds: 500), () {
-                    if (searchQuery == v) {
-                      fetchRestaurants();
-                    }
-                  });
-                },
                 hasActiveFilters: selectedCuisines.isNotEmpty ||
                     minRating > 0 ||
                     maxDistance < 10,
-                onFiltersTap: _showFilters,
-                onSortTap: _showSort,
                 sortLabel: _getSortLabel(),
-                onExpertCornerTap: () => context.push('/expert-corner'),
+                onCityTap: _showCitySelector,
+                onFilterTap: _showFilters,
+                onSortTap: _showSort,
+                onSearchChanged: _handleSearchChanged,
               ),
               Expanded(child: _buildContent()),
             ],
@@ -433,22 +385,15 @@ class _HomePageState extends State<HomePage> {
     }
 
     if (hasError) {
-      return ErrorStateWidget(
-        title: 'Unable to load restaurants',
-        message: 'Check your connection and try again',
-        onRetry: _loadAll,
-      );
+      return ErrorStateWidget(onRetry: _loadAll);
     }
 
     if (restaurants.isEmpty &&
         featuredRestaurants.isEmpty &&
         trendingRestaurants.isEmpty) {
       return EmptyStateWidget(
-        message: 'No restaurants found',
-        submessage:
-            searchQuery.isNotEmpty ? 'Try a different search term' : null,
-        actionLabel: searchQuery.isNotEmpty ? 'Clear Search' : null,
-        onAction: searchQuery.isNotEmpty
+        searchQuery: searchQuery,
+        onClearSearch: searchQuery.isNotEmpty
             ? () {
                 setState(() => searchQuery = '');
                 fetchRestaurants();
@@ -465,26 +410,22 @@ class _HomePageState extends State<HomePage> {
         padding: const EdgeInsets.all(16),
         children: [
           // Featured Section
-          if (searchQuery.isEmpty &&
-              selectedCuisines.isEmpty &&
-              minRating == 0 &&
-              featuredRestaurants.isNotEmpty)
+          if (searchQuery.isEmpty && selectedCuisines.isEmpty && minRating == 0)
             FeaturedSection(
-              restaurants: featuredRestaurants,
-              cardBuilder: (restaurant) => _buildRestaurantCard(restaurant),
+              featuredRestaurants: featuredRestaurants,
+              bookmarkedIds: bookmarkedIds,
+              onBookmarkToggle: toggleBookmark,
             ),
 
           // Trending Section
-          if (searchQuery.isEmpty &&
-              selectedCuisines.isEmpty &&
-              minRating == 0 &&
-              trendingRestaurants.isNotEmpty)
+          if (searchQuery.isEmpty && selectedCuisines.isEmpty && minRating == 0)
             TrendingSection(
-              restaurants: trendingRestaurants,
-              cardBuilder: (restaurant) => _buildRestaurantCard(restaurant),
+              trendingRestaurants: trendingRestaurants,
+              bookmarkedIds: bookmarkedIds,
+              onBookmarkToggle: toggleBookmark,
             ),
 
-          // All/Search Results
+          // All/Search Results Header
           Text(
             searchQuery.isNotEmpty ||
                     selectedCuisines.isNotEmpty ||
@@ -498,38 +439,23 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
           const SizedBox(height: 16),
-          ...restaurants.map((restaurant) => Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: _buildRestaurantCard(restaurant),
-              )),
+
+          // Restaurant List
+          ...restaurants.map((restaurant) {
+            final restaurantId = restaurant['id'] ?? 0;
+            final isBookmarked = bookmarkedIds.contains(restaurantId);
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: RestaurantCard(
+                restaurant: restaurant,
+                isBookmarked: isBookmarked,
+                onBookmarkToggle: toggleBookmark,
+              ),
+            );
+          }),
         ],
       ),
-    );
-  }
-
-  Widget _buildRestaurantCard(Map restaurant) {
-    final restaurantId = restaurant['id'];
-    final isBookmarked = bookmarkedIds.contains(restaurantId);
-    final name = restaurant['name'] ?? 'Restaurant';
-
-    return RestaurantCard(
-      restaurant: restaurant,
-      isBookmarked: isBookmarked,
-      onBookmarkTap: () => toggleBookmark(restaurantId.toString()),
-      onShareTap: () {
-        showDialog(
-          context: context,
-          builder: (context) => ShareModal(
-            onClose: () => Navigator.pop(context),
-            item: {
-              'title': name,
-              'description': 'Check out this restaurant!',
-              'url': 'https://sipzy.co.in/restaurant/$restaurantId',
-            },
-          ),
-        );
-      },
-      onCardTap: () => context.push('/restaurant/$restaurantId'),
     );
   }
 }

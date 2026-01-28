@@ -1,34 +1,34 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
+import 'restaurant_card.dart';
 
 class TrendingSection extends StatelessWidget {
-  final List<Map<String, dynamic>> restaurants;
-  final Widget Function(Map<String, dynamic>) cardBuilder;
+  final List<Map<String, dynamic>> trendingRestaurants;
+  final List<int> bookmarkedIds;
+  final Function(String restaurantId) onBookmarkToggle;
 
   const TrendingSection({
     super.key,
-    required this.restaurants,
-    required this.cardBuilder,
+    required this.trendingRestaurants,
+    required this.bookmarkedIds,
+    required this.onBookmarkToggle,
   });
 
   @override
   Widget build(BuildContext context) {
-    if (restaurants.isEmpty) {
+    if (trendingRestaurants.isEmpty) {
       return const SizedBox.shrink();
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16),
-          child: Text(
-            'Trending Restaurants',
-            style: TextStyle(
-              color: AppTheme.textPrimary,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
+        const Text(
+          'Trending Restaurants',
+          style: TextStyle(
+            color: AppTheme.textPrimary,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
           ),
         ),
         const SizedBox(height: 16),
@@ -36,13 +36,20 @@ class TrendingSection extends StatelessWidget {
           height: 280,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: restaurants.length,
+            itemCount: trendingRestaurants.length,
             separatorBuilder: (context, index) => const SizedBox(width: 16),
             itemBuilder: (context, index) {
+              final restaurant = trendingRestaurants[index];
+              final restaurantId = restaurant['id'] ?? 0;
+              final isBookmarked = bookmarkedIds.contains(restaurantId);
+
               return SizedBox(
                 width: 280,
-                child: cardBuilder(restaurants[index]),
+                child: RestaurantCard(
+                  restaurant: restaurant,
+                  isBookmarked: isBookmarked,
+                  onBookmarkToggle: onBookmarkToggle,
+                ),
               );
             },
           ),
