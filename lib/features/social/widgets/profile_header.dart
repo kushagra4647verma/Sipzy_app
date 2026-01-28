@@ -39,9 +39,9 @@ class ProfileHeader extends StatelessWidget {
       children: [
         Container(
           padding: const EdgeInsets.all(3),
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             shape: BoxShape.circle,
-            gradient: const LinearGradient(
+            gradient: LinearGradient(
               colors: [AppTheme.primary, AppTheme.secondary],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
