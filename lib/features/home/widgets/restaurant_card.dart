@@ -31,45 +31,32 @@ class RestaurantCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Safe data extraction with fallbacks
-    final restaurantId = _safeGet(restaurant, 'id', 0);
-
-    // Image field with multiple fallbacks
-    final image = _safeGet<String?>(restaurant, 'logoImage', null) ??
-        _safeGet<String?>(restaurant, 'coverImage', null) ??
-        _safeGet<String?>(restaurant, 'image', null);
+    final restaurantId = _safeGet(restaurant, 'id', '').toString();
+    final logoImage = restaurant['logo_image'] ?? restaurant['logoImage'];
+    final coverImage = restaurant['cover_image'] ?? restaurant['coverImage'];
+    final image = logoImage ?? coverImage;
 
     final name = _safeGet(restaurant, 'name', 'Restaurant');
     final area = _safeGet(restaurant, 'area', '');
     final distance = _safeGet<num>(restaurant, 'distance', 0).toDouble();
+    final cuisineTags = restaurant['cuisine_tags'] ?? restaurant['cuisineTags'];
 
-    // Cuisine tags with fallback
-    final cuisineTags = restaurant['cuisineTags'];
-    final cuisineList = restaurant['cuisine'];
     List<String> cuisines = [];
-
-    if (cuisineTags is List) {
+    if (cuisineTags is List && cuisineTags.isNotEmpty) {
       cuisines = cuisineTags.take(2).map((e) => e.toString()).toList();
-    } else if (cuisineList is List) {
-      cuisines = cuisineList.take(2).map((e) => e.toString()).toList();
     }
-
     final topDrink = _safeGet(restaurant, 'top_drink', '');
+    final priceRange =
+        restaurant['price_range'] ?? restaurant['priceRange'] ?? 2;
+    final costForTwo = (priceRange * 500);
 
-    // Cost calculation with fallbacks
-    final costForTwo =
-        _safeGet<num?>(restaurant, 'cost_for_two', null)?.toInt() ??
-            _safeGet<num?>(restaurant, 'costForTwo', null)?.toInt() ??
-            (_safeGet<num>(restaurant, 'priceRange', 2) * 500).toInt();
-
-    // Rating with fallback
     final rating = _safeGet<num>(restaurant, 'sipzy_rating', 0).toDouble();
-    final displayRating = rating > 0
-        ? rating
-        : _safeGet<num>(restaurant, 'rating', 4.0).toDouble();
-
+    final displayRating = rating > 0 ? rating : 4.0;
     return GestureDetector(
-      onTap: () => context.push('/restaurant/$restaurantId'),
+      onTap: () {
+        print('🔍 Card tapped! ID: $restaurantId');
+        context.push('/restaurant/$restaurantId');
+      },
       child: Container(
         decoration: BoxDecoration(
           color: AppTheme.card,

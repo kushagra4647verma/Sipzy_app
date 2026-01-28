@@ -131,11 +131,14 @@ class _HomePageState extends State<HomePage> {
       );
 
       if (mounted) {
+        // In home_page.dart, after fetching restaurants
         setState(() {
           restaurants = List<Map<String, dynamic>>.from(
-            fetchedRestaurants.map((r) => r is Map<String, dynamic> ? r : {}),
+            fetchedRestaurants.map((r) {
+              print('🔍 Restaurant data: $r'); // Add this line
+              return r is Map<String, dynamic> ? r : {};
+            }),
           );
-          hasError = false;
         });
 
         // Fetch featured and trending only if no search/filters
