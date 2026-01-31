@@ -83,9 +83,8 @@ class _RestaurantDetailState extends State<RestaurantDetail>
     try {
       final results = await Future.wait([
         _restaurantService.getRestaurant(widget.restaurantId), // Restaurant?
-        _restaurantService.getRestaurantBeverages(widget.restaurantId),
-        _eventService.getEvents(restaurantId: widget.restaurantId),
-        _restaurantService.getExpertRecommendations(widget.restaurantId),
+        _beverageService.getRestaurantBeverages(widget.restaurantId),
+        _eventService.getRestaurantEvents(widget.restaurantId),
       ]);
 
       if (!mounted) return;
@@ -150,7 +149,7 @@ class _RestaurantDetailState extends State<RestaurantDetail>
 
   Future<void> toggleBookmark() async {
     try {
-      final success = await _userService.toggleBookmark(widget.restaurantId);
+      final success = await _userService.addBookmark(widget.restaurantId);
 
       if (success) {
         setState(() => isBookmarked = !isBookmarked);

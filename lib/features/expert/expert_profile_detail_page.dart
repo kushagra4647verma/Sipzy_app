@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
+import '../../services/expert_service.dart';
 import '../../core/theme/app_theme.dart';
 
 class ExpertProfileDetailPage extends StatefulWidget {
@@ -20,6 +20,7 @@ class ExpertProfileDetailPage extends StatefulWidget {
 
 class _ExpertProfileDetailPageState extends State<ExpertProfileDetailPage> {
   final _supabase = Supabase.instance.client;
+  final _expertService = ExpertService();
 
   Map<String, dynamic>? expert;
   List expertRatings = [];
@@ -33,84 +34,36 @@ class _ExpertProfileDetailPageState extends State<ExpertProfileDetailPage> {
   }
 
   Future<void> fetchExpertProfile() async {
-    // COMMENTED FOR LOCAL TESTING
-    /*
-    setState(() { loading = true; hasError = false; });
-    try {
-      final headers = await _getHeaders();
-      final expertRes = await http.get(
-        Uri.parse('${EnvConfig.apiBaseUrl}/experts/${widget.expertId}'),
-        headers: headers,
-      ).timeout(const Duration(seconds: 15));
-      
-      if (expertRes.statusCode == 200) {
-        final data = jsonDecode(expertRes.body);
+    Future<void> fetchExpertProfile() async {
+      setState(() {
+        loading = true;
+        hasError = false;
+      });
+
+      try {
+        final results = await Future.wait([
+          _expertService.getExpert(widget.expertId),
+          _expertService.getExpertRatings(widget.expertId, limit: 10),
+        ]);
+
+        if (!mounted) return;
+
         setState(() {
-          expert = data['success'] == true ? data['data'] : data;
+          expert = results[0] as Map<String, dynamic>?;
+          expertRatings = results[1] as List;
+          hasError = expert == null;
         });
+      } catch (e) {
+        print('❌ Fetch expert profile error: $e');
+        if (mounted) {
+          setState(() => hasError = true);
+        }
+      } finally {
+        if (mounted) {
+          setState(() => loading = false);
+        }
       }
-      
-      final ratingsRes = await http.get(
-        Uri.parse('${EnvConfig.apiBaseUrl}/experts/${widget.expertId}/ratings?limit=10'),
-        headers: headers,
-      ).timeout(const Duration(seconds: 15));
-      
-      if (ratingsRes.statusCode == 200) {
-        final data = jsonDecode(ratingsRes.body);
-        setState(() {
-          expertRatings = data['success'] == true ? (data['data'] ?? []) : [];
-        });
-      }
-    } catch (e) {
-      setState(() => hasError = true);
-    } finally {
-      setState(() => loading = false);
     }
-    */
-
-    // DUMMY DATA
-    setState(() {
-      expert = {
-        'id': widget.expertId,
-        'name': 'Raj Mehta - Updated',
-        'specialization': 'Sommelier',
-        'avatar': '',
-        'verified': true,
-        'avgRating': 4.2,
-        'totalRatings': 5,
-        'yearsExp': 12,
-        'bio':
-            'Expert sommelier with 15+ years of experience in beverage tasting and evaluation.',
-        'expertise_tags': [
-          'Cocktails',
-          'Wine',
-          'Whiskey',
-          'Craft Beer',
-          'Mocktails'
-        ],
-      };
-
-      expertRatings = [
-        {
-          'beverages': {'name': 'Bangalore Old Fashioned'},
-          'presentationRating': 4,
-          'tasteRating': 4,
-          'ingredientsRating': 4,
-          'accuracyRating': 5,
-          'createdAt': '2025-12-10'
-        },
-        {
-          'beverages': {'name': 'Purple Rain Martini'},
-          'presentationRating': 5,
-          'tasteRating': 4,
-          'ingredientsRating': 5,
-          'accuracyRating': 4,
-          'createdAt': '2025-12-08'
-        },
-      ];
-
-      loading = false;
-    });
   }
 
   @override

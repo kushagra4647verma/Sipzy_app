@@ -223,7 +223,7 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> toggleBookmark(String restaurantId) async {
     try {
-      final success = await _userService.toggleBookmark(restaurantId);
+      final success = await _userService.addBookmark(restaurantId);
 
       if (success) {
         await fetchBookmarks();

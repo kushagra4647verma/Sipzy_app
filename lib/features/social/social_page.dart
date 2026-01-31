@@ -42,7 +42,8 @@ class _SocialPageState extends State<SocialPage>
   List badges = [];
   List bookmarks = [];
   List friends = [];
-
+  bool _isLoading = false;
+  Map<String, dynamic>? userStats;
   String badgeFilter = 'all';
 
   @override
@@ -66,63 +67,47 @@ class _SocialPageState extends State<SocialPage>
   }
 
   Future<void> fetchAll() async {
-    setState(() {
-      loading = true;
-      hasError = false;
-    });
+    if (_isLoading) return;
+
+    final user = _supabase.auth.currentUser;
+    if (user == null) return;
+
+    setState(() => _isLoading = true);
 
     try {
-      final userId =
-          _supabase.auth.currentUser?.id ?? widget.user['id']?.toString() ?? '';
-
-      print('🔄 Fetching all data for user: $userId');
+      debugPrint("🔄 Fetching all data for user: ${user.id}");
 
       final results = await Future.wait([
-        _userService.getUserRatings(userId),
-        _userService.getDiary(),
-        _userService.getBookmarks(),
-        _userService.getFriends(),
-        _userService.getBadges(),
-        _userService.getUserStats(userId),
+        _userService.getDiary(), // 0
+        _userService.getBookmarks(), // 1
+        _userService.getFriends(), // 2
+        _userService.getBadges(), // 3
+        _userService.getUserStats(user.id), // 4
       ]);
 
-      if (mounted) {
-        setState(() {
-          ratings = (results[0] as List?) ?? [];
-          diaryEntries = (results[1] as List?) ?? [];
-          bookmarks = (results[2] as List?) ?? [];
-          friends = (results[3] as List?) ?? [];
-          badges = (results[4] as List?) ?? [];
+      final diary = List<Map<String, dynamic>>.from(results[0] as List);
+      final bookmarks = List<Map<String, dynamic>>.from(results[1] as List);
+      final friends = List<Map<String, dynamic>>.from(results[2] as List);
+      final badges = List<Map<String, dynamic>>.from(results[3] as List);
+      final stats = Map<String, dynamic>.from(results[4] as Map);
 
-          // ✅ DEBUG: Log diary entries
-          print('📖 Diary entries loaded: ${diaryEntries.length}');
-          if (diaryEntries.isNotEmpty) {
-            print('📖 First entry: ${diaryEntries[0]}');
-          }
+      if (!mounted) return;
 
-          final apiStats = results[5] as Map<String, dynamic>;
-          stats = {
-            'ratingsCount': apiStats['ratingsCount'] ?? ratings.length,
-            'friendsCount': apiStats['friendsCount'] ?? friends.length,
-            'badgesCount': apiStats['badgesCount'] ??
-                badges.where((b) => b['earned'] == true).length,
-            'bookmarksCount': apiStats['bookmarksCount'] ?? bookmarks.length,
-            'diaryEntriesCount':
-                apiStats['diaryEntriesCount'] ?? diaryEntries.length,
-          };
+      setState(() {
+        diaryEntries = diary;
+        this.bookmarks = bookmarks;
+        this.friends = friends;
+        this.badges = badges;
+        userStats = stats;
+      });
 
-          hasError = false;
-        });
-      }
-    } catch (e) {
-      print('❌ Social fetchAll error: $e');
-      if (mounted) {
-        setState(() => hasError = true);
-        _showToast('Failed to load profile data', isError: true);
-      }
+      debugPrint("✅ Social data fetched successfully");
+    } catch (e, st) {
+      debugPrint("❌ Social fetchAll error: $e");
+      debugPrint("$st");
     } finally {
       if (mounted) {
-        setState(() => loading = false);
+        setState(() => _isLoading = false);
       }
     }
   }

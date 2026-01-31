@@ -4,7 +4,6 @@ import '../../shared/ui/share_modal.dart';
 import '../../core/theme/app_theme.dart';
 import '../../services/beverage_service.dart';
 import '../../services/camera_service.dart';
-import '../../services/user_service.dart';
 
 class BeverageDetailPage extends StatefulWidget {
   final Map<String, dynamic> user;
@@ -24,7 +23,6 @@ class _BeverageDetailPageState extends State<BeverageDetailPage> {
   final _supabase = Supabase.instance.client;
   final _beverageService = BeverageService();
   final _cameraService = CameraService();
-  final _userService = UserService();
 
   Map<String, dynamic>? beverage;
   bool loading = true;
@@ -100,12 +98,11 @@ class _BeverageDetailPageState extends State<BeverageDetailPage> {
     setState(() => submitting = true);
 
     try {
+      // ✅ FIXED: Updated to match service signature
       final success = await _beverageService.rateBeverage(
         widget.beverageId,
-        {
-          'rating': selectedRating,
-          'comments': reviewText.isNotEmpty ? reviewText : null,
-        },
+        selectedRating,
+        comments: reviewText.isNotEmpty ? reviewText : null,
       );
 
       if (success) {
@@ -928,13 +925,10 @@ class _BeverageDetailPageState extends State<BeverageDetailPage> {
     );
 
     if (photoUrl != null) {
-      // Upload to backend
-      final success = await _userService.uploadBeveragePhoto(
+      // ✅ FIXED: Upload to backend using beverage service
+      final success = await _beverageService.uploadBeveragePhoto(
         widget.beverageId,
-        {
-          'url': photoUrl,
-          'caption': 'User uploaded photo',
-        },
+        photoUrl,
       );
 
       if (success) {
