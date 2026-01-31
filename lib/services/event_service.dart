@@ -1,4 +1,5 @@
 // lib/services/event_service.dart
+// ✅ FIXED: Complete event service with all backend endpoints
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -27,28 +28,28 @@ class EventService {
 
   // ============ EVENTS ============
 
-  /// GET /users/events
-  Future<List> getEvents({String? restaurantId}) async {
+  /// GET /api/events
+  Future<List<Map<String, dynamic>>> getEvents() async {
     try {
       final headers = await _getHeaders();
-      final params = <String, String>{};
-
-      if (restaurantId != null) {
-        params['restaurant_id'] = restaurantId;
-      }
-
-      final uri = Uri.parse('$baseUrl/events')
-          .replace(queryParameters: params.isEmpty ? null : params);
 
       final response = await http
-          .get(uri, headers: headers)
+          .get(
+            Uri.parse('$baseUrl/events'),
+            headers: headers,
+          )
           .timeout(EnvConfig.requestTimeout);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return data['success'] == true
-            ? (data['data'] ?? [])
-            : (data is List ? data : []);
+
+        if (data['success'] == true && data['data'] != null) {
+          return List<Map<String, dynamic>>.from(data['data']);
+        }
+
+        if (data is List) {
+          return List<Map<String, dynamic>>.from(data);
+        }
       }
       return [];
     } catch (e) {
@@ -57,7 +58,7 @@ class EventService {
     }
   }
 
-  /// GET /users/events/{event_id}
+  /// GET /api/events/:eventId
   Future<Map<String, dynamic>?> getEvent(String eventId) async {
     try {
       final headers = await _getHeaders();
@@ -79,7 +80,40 @@ class EventService {
     }
   }
 
-  /// GET /users/events/health
+  /// GET /api/restaurants/:restaurantId/events
+  /// ✅ MOVED: From restaurant_service to event_service
+  Future<List<Map<String, dynamic>>> getRestaurantEvents(
+      String restaurantId) async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/restaurants/$restaurantId/events'),
+            headers: headers,
+          )
+          .timeout(EnvConfig.requestTimeout);
+
+      print('🎉 Get restaurant events: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        if (data['success'] == true && data['data'] != null) {
+          return List<Map<String, dynamic>>.from(data['data']);
+        }
+
+        if (data is List) {
+          return List<Map<String, dynamic>>.from(data);
+        }
+      }
+      return [];
+    } catch (e) {
+      print('❌ Get restaurant events error: $e');
+      return [];
+    }
+  }
+
+  /// GET /api/events/health
   Future<bool> checkHealth() async {
     try {
       final response = await http

@@ -1,4 +1,5 @@
 // lib/services/beverage_service.dart
+// ✅ FIXED: Complete beverage service with all backend endpoints
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -25,10 +26,10 @@ class BeverageService {
     return headers;
   }
 
-  // ============ BEVERAGES ============
+  // ============ BEVERAGES CRUD ============
 
-  /// GET /users/beverages
-  Future<List> getBeverages() async {
+  /// GET /api/beverages
+  Future<List<Map<String, dynamic>>> getBeverages() async {
     try {
       final headers = await _getHeaders();
       final response = await http
@@ -40,9 +41,14 @@ class BeverageService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return data['success'] == true
-            ? (data['data'] ?? [])
-            : (data is List ? data : []);
+
+        if (data['success'] == true && data['data'] != null) {
+          return List<Map<String, dynamic>>.from(data['data']);
+        }
+
+        if (data is List) {
+          return List<Map<String, dynamic>>.from(data);
+        }
       }
       return [];
     } catch (e) {
@@ -51,7 +57,7 @@ class BeverageService {
     }
   }
 
-  /// GET /users/beverages/{beverage_id}
+  /// GET /api/beverages/:beverageId
   Future<Map<String, dynamic>?> getBeverage(String beverageId) async {
     try {
       final headers = await _getHeaders();
@@ -73,8 +79,41 @@ class BeverageService {
     }
   }
 
-  /// GET /users/beverages/{beverage_id}/ratings
-  Future<List> getBeverageRatings(String beverageId) async {
+  /// GET /api/restaurants/:restaurantId/beverages
+  /// ✅ MOVED: From restaurant_service to beverage_service
+  Future<List<Map<String, dynamic>>> getRestaurantBeverages(
+      String restaurantId) async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/restaurants/$restaurantId/beverages'),
+            headers: headers,
+          )
+          .timeout(EnvConfig.requestTimeout);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        if (data['success'] == true && data['data'] != null) {
+          return List<Map<String, dynamic>>.from(data['data']);
+        }
+
+        if (data is List) {
+          return List<Map<String, dynamic>>.from(data);
+        }
+      }
+      return [];
+    } catch (e) {
+      print('❌ Get restaurant beverages error: $e');
+      return [];
+    }
+  }
+
+  // ============ RATINGS ============
+
+  /// GET /api/beverages/:beverageId/ratings
+  Future<Map<String, dynamic>?> getBeverageRatings(String beverageId) async {
     try {
       final headers = await _getHeaders();
       final response = await http
@@ -86,30 +125,39 @@ class BeverageService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return data['success'] == true
-            ? (data['data'] ?? [])
-            : (data is List ? data : []);
+        return data['success'] == true ? data['data'] : data;
       }
-      return [];
+      return null;
     } catch (e) {
       print('❌ Get beverage ratings error: $e');
-      return [];
+      return null;
     }
   }
 
-  /// POST /users/beverages/{beverage_id}/rate
+  /// POST /api/beverages/:beverageId/ratings
+  /// ✅ FIXED: Changed from /rate to /ratings
   Future<bool> rateBeverage(
-      String beverageId, Map<String, dynamic> rating) async {
+    String beverageId,
+    int rating, {
+    String? comments,
+  }) async {
     try {
       final headers = await _getHeaders();
+
+      final body = {
+        'rating': rating,
+        if (comments != null) 'comments': comments,
+      };
+
       final response = await http
           .post(
-            Uri.parse('$baseUrl/beverages/$beverageId/rate'),
+            Uri.parse('$baseUrl/beverages/$beverageId/ratings'),
             headers: headers,
-            body: jsonEncode(rating),
+            body: jsonEncode(body),
           )
           .timeout(EnvConfig.requestTimeout);
 
+      print('📊 Rate beverage response: ${response.statusCode}');
       return response.statusCode == 200 || response.statusCode == 201;
     } catch (e) {
       print('❌ Rate beverage error: $e');
@@ -117,8 +165,10 @@ class BeverageService {
     }
   }
 
-  /// GET /users/beverages/{beverage_id}/photos
-  Future<List> getBeveragePhotos(String beverageId) async {
+  // ============ PHOTOS ============
+
+  /// GET /api/beverages/:beverageId/photos
+  Future<String?> getBeveragePhoto(String beverageId) async {
     try {
       final headers = await _getHeaders();
       final response = await http
@@ -130,14 +180,64 @@ class BeverageService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return data['success'] == true
-            ? (data['data'] ?? [])
-            : (data is List ? data : []);
+
+        if (data['success'] == true) {
+          return data['data']; // Returns photo URL string
+        }
       }
-      return [];
+      return null;
     } catch (e) {
-      print('❌ Get beverage photos error: $e');
-      return [];
+      print('❌ Get beverage photo error: $e');
+      return null;
+    }
+  }
+
+  /// POST /api/beverages/:beverageId/photos
+  /// ✅ NEW: Moved from user_service
+  Future<bool> uploadBeveragePhoto(
+    String beverageId,
+    String photoUrl,
+  ) async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/beverages/$beverageId/photos'),
+            headers: headers,
+            body: jsonEncode({'photo': photoUrl}),
+          )
+          .timeout(EnvConfig.requestTimeout);
+
+      print('📤 Upload beverage photo: ${response.statusCode}');
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      print('❌ Upload beverage photo error: $e');
+      return false;
+    }
+  }
+
+  // ============ EXPERT RATINGS ============
+
+  /// GET /api/beverages/:beverageId/expert-rating
+  /// ✅ NEW: Previously missing endpoint
+  Future<Map<String, dynamic>?> getExpertRating(String beverageId) async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/beverages/$beverageId/expert-rating'),
+            headers: headers,
+          )
+          .timeout(EnvConfig.requestTimeout);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['success'] == true ? data['data'] : data;
+      }
+      return null;
+    } catch (e) {
+      print('❌ Get expert rating error: $e');
+      return null;
     }
   }
 }

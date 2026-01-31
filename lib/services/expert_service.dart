@@ -1,4 +1,5 @@
 // lib/services/expert_service.dart
+// ✅ FIXED: Complete expert service - removed non-existent endpoints
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -27,16 +28,21 @@ class ExpertService {
 
   // ============ EXPERTS ============
 
-  /// GET /users/experts
-  Future<List> getExperts() async {
+  /// GET /api/experts (with optional city filter)
+  Future<List<Map<String, dynamic>>> getExperts({String? city}) async {
     try {
       final headers = await _getHeaders();
 
-      print('🔍 Fetching experts from: $baseUrl');
+      var url = baseUrl;
+      if (city != null) {
+        url = '$baseUrl?city=${Uri.encodeComponent(city)}';
+      }
+
+      print('🔍 Fetching experts from: $url');
 
       final response = await http
           .get(
-            Uri.parse(baseUrl),
+            Uri.parse(url),
             headers: headers,
           )
           .timeout(EnvConfig.requestTimeout);
@@ -66,7 +72,7 @@ class ExpertService {
     }
   }
 
-  /// GET /users/experts/{expert_id}
+  /// GET /api/experts/:expertId
   Future<Map<String, dynamic>?> getExpert(String expertId) async {
     try {
       final headers = await _getHeaders();
@@ -88,8 +94,11 @@ class ExpertService {
     }
   }
 
-  /// GET /users/experts/{expert_id}/ratings
-  Future<List> getExpertRatings(String expertId, {int limit = 10}) async {
+  /// GET /api/experts/:expertId/ratings
+  Future<List<Map<String, dynamic>>> getExpertRatings(
+    String expertId, {
+    int limit = 10,
+  }) async {
     try {
       final headers = await _getHeaders();
       final response = await http
@@ -101,9 +110,14 @@ class ExpertService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return data['success'] == true
-            ? (data['data'] ?? [])
-            : (data is List ? data : []);
+
+        if (data['success'] == true && data['data'] != null) {
+          return List<Map<String, dynamic>>.from(data['data']);
+        }
+
+        if (data is List) {
+          return List<Map<String, dynamic>>.from(data);
+        }
       }
       return [];
     } catch (e) {
@@ -112,30 +126,7 @@ class ExpertService {
     }
   }
 
-  /// GET /users/experts/{expert_id}/breakdown/{beverage_id}
-  Future<Map<String, dynamic>?> getExpertBreakdown(
-      String expertId, String beverageId) async {
-    try {
-      final headers = await _getHeaders();
-      final response = await http
-          .get(
-            Uri.parse('$baseUrl/$expertId/breakdown/$beverageId'),
-            headers: headers,
-          )
-          .timeout(EnvConfig.requestTimeout);
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return data['success'] == true ? data['data'] : data;
-      }
-      return null;
-    } catch (e) {
-      print('❌ Get expert breakdown error: $e');
-      return null;
-    }
-  }
-
-  /// GET /users/experts/health
+  /// GET /api/experts/health
   Future<bool> checkHealth() async {
     try {
       final response = await http

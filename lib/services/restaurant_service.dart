@@ -1,4 +1,5 @@
 // lib/services/restaurant_service.dart
+// ✅ FIXED: Complete restaurant service with all backend endpoints
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -10,7 +11,7 @@ import 'location_service.dart';
 class RestaurantService {
   final _supabase = Supabase.instance.client;
   final _locationService = LocationService();
-  static const String baseUrl = 'https://api.sipzy.co.in/users';
+  static const String baseUrl = 'https://api.sipzy.co.in/users/restaurants';
 
   Future<Map<String, String>> _getHeaders() async {
     final session = _supabase.auth.currentSession;
@@ -25,8 +26,7 @@ class RestaurantService {
     if (user?.id != null) {
       headers['x-user-id'] = user!.id;
     }
-    print("user:" + user!.id);
-    print("auth token:" + session!.accessToken);
+
     return headers;
   }
 
@@ -35,27 +35,17 @@ class RestaurantService {
     if (wkb == null || wkb.isEmpty) return null;
 
     try {
-      // PostGIS WKB format for POINT with SRID:
-      // - Byte order (1 byte): 01
-      // - WKB type (4 bytes): 01000020
-      // - SRID (4 bytes): E6100000 (4326 in little-endian)
-      // - X coordinate/Longitude (8 bytes)
-      // - Y coordinate/Latitude (8 bytes)
-
       if (wkb.length < 50) {
         print('⚠️ WKB too short: ${wkb.length}');
         return null;
       }
 
-      // Extract hex strings for coordinates (skip first 18 chars = 9 bytes)
-      final lonHex = wkb.substring(18, 34); // 8 bytes = 16 hex chars
-      final latHex = wkb.substring(34, 50); // 8 bytes = 16 hex chars
+      final lonHex = wkb.substring(18, 34);
+      final latHex = wkb.substring(34, 50);
 
-      // Convert hex to bytes
       final lonBytes = _hexToBytes(lonHex);
       final latBytes = _hexToBytes(latHex);
 
-      // Convert bytes to double (little-endian)
       final lon = _bytesToDouble(lonBytes);
       final lat = _bytesToDouble(latBytes);
 
@@ -68,7 +58,6 @@ class RestaurantService {
     }
   }
 
-  // Helper: Convert hex string to bytes
   Uint8List _hexToBytes(String hex) {
     final bytes = Uint8List(hex.length ~/ 2);
     for (var i = 0; i < hex.length; i += 2) {
@@ -82,14 +71,12 @@ class RestaurantService {
     return byteData.getFloat64(0, Endian.little);
   }
 
-  /// ✅ FIXED: Calculate distance for restaurant
   void _calculateDistanceForRestaurant(
     Map<String, dynamic> restaurant,
     double? userLat,
     double? userLon,
   ) {
     try {
-      // First parse WKB location if it exists
       if (restaurant['location'] != null) {
         final coords = _parseLocationGeometry(restaurant['location']);
         if (coords != null) {
@@ -100,7 +87,6 @@ class RestaurantService {
         }
       }
 
-      // ✅ FIXED: Try multiple field names for coordinates
       final lat = restaurant['lat'] ??
           restaurant['latitude'] ??
           restaurant['restaurantLatitude'];
@@ -108,7 +94,6 @@ class RestaurantService {
           restaurant['longitude'] ??
           restaurant['restaurantLongitude'];
 
-      // Calculate distance if we have both user and restaurant coordinates
       if (userLat != null && userLon != null && lat != null && lon != null) {
         final restaurantLat =
             lat is num ? lat.toDouble() : double.parse(lat.toString());
@@ -126,7 +111,6 @@ class RestaurantService {
         print(
             '✅ Calculated distance for ${restaurant['name']}: ${distance.toStringAsFixed(2)} km');
       } else {
-        // Set default distance if coordinates are missing
         restaurant['distance'] = 0.0;
         print(
             '⚠️ Missing coordinates for ${restaurant['name']} - lat: $lat, lon: $lon, userLat: $userLat, userLon: $userLon');
@@ -137,7 +121,9 @@ class RestaurantService {
     }
   }
 
-  /// GET /users/restaurants
+  // ============ RESTAURANTS CRUD ============
+
+  /// GET /api/restaurants
   Future<List<Map<String, dynamic>>> getRestaurants({
     String? city,
     double? lat,
@@ -163,11 +149,9 @@ class RestaurantService {
       if (maxDistance != null) params['max_distance'] = maxDistance.toString();
       if (sortBy != null) params['sort_by'] = sortBy;
 
-      final uri =
-          Uri.parse('$baseUrl/restaurants').replace(queryParameters: params);
+      final uri = Uri.parse(baseUrl).replace(queryParameters: params);
 
       print('🌐 Fetching restaurants from: $uri');
-      print('📍 User location: lat=$lat, lon=$lon');
 
       final response = await http
           .get(uri, headers: headers)
@@ -180,7 +164,6 @@ class RestaurantService {
           final restaurants = List<Map<String, dynamic>>.from(data['data']);
           print('✅ Fetched ${restaurants.length} restaurants');
 
-          // ✅ Calculate distance for each restaurant
           for (var restaurant in restaurants) {
             _calculateDistanceForRestaurant(restaurant, lat, lon);
           }
@@ -188,20 +171,15 @@ class RestaurantService {
           return restaurants;
         }
 
-        // Fallback for direct array response
         if (data is List) {
           final restaurants = List<Map<String, dynamic>>.from(data);
-          print('✅ Fetched ${restaurants.length} restaurants (direct array)');
-
           for (var restaurant in restaurants) {
             _calculateDistanceForRestaurant(restaurant, lat, lon);
           }
-
           return restaurants;
         }
       }
 
-      print('⚠️ No restaurants found or invalid response');
       return [];
     } catch (e) {
       print('❌ Get restaurants error: $e');
@@ -209,53 +187,114 @@ class RestaurantService {
     }
   }
 
-  Future<List<Map<String, dynamic>>> getFeaturedRestaurants({
-    double? lat,
-    double? lon,
-  }) async {
+  /// GET /api/restaurants/:restaurantId
+  Future<Restaurant?> getRestaurant(String restaurantId) async {
     try {
-      if (lat == null || lon == null) {
-        print('⚠️ Location not available for featured restaurants');
-        return [];
-      }
-
       final headers = await _getHeaders();
-
       final response = await http
           .get(
-            Uri.parse('$baseUrl/restaurants/featured/$lat/$lon'),
+            Uri.parse('$baseUrl/$restaurantId'),
             headers: headers,
           )
           .timeout(EnvConfig.requestTimeout);
 
-      print('🔥 Featured Response: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body);
+        if (body['success'] == true) {
+          final restaurantData = body['data'] as Map<String, dynamic>;
+
+          final position = await _locationService.getCurrentLocation();
+
+          _calculateDistanceForRestaurant(
+            restaurantData,
+            position?.latitude,
+            position?.longitude,
+          );
+
+          return Restaurant.fromJson(restaurantData);
+        }
+      }
+      return null;
+    } catch (e) {
+      print('❌ Get restaurant error: $e');
+      return null;
+    }
+  }
+
+  // ============ LOCATION-BASED QUERIES ============
+
+  /// GET /api/restaurants/by-city/:city
+  Future<List<dynamic>> getRestaurantsByCity(String city) async {
+    try {
+      final headers = await _getHeaders();
+      final position = await _locationService.getCurrentLocation();
+      final encodedCity = Uri.encodeComponent(city);
+
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/by-city/$encodedCity'),
+            headers: headers,
+          )
+          .timeout(EnvConfig.requestTimeout);
 
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
+        final data = jsonDecode(response.body);
+        final restaurants = data['success'] == true
+            ? List<Map<String, dynamic>>.from(data['data'] ?? [])
+            : (data is List ? List<Map<String, dynamic>>.from(data) : []);
 
-        if (decoded is Map &&
-            decoded['success'] == true &&
-            decoded['data'] != null) {
-          final restaurants = List<Map<String, dynamic>>.from(decoded['data']);
-
-          for (var restaurant in restaurants) {
-            _calculateDistanceForRestaurant(restaurant, lat, lon);
-          }
-
-          return restaurants;
+        for (var restaurant in restaurants) {
+          _calculateDistanceForRestaurant(
+            restaurant,
+            position?.latitude,
+            position?.longitude,
+          );
         }
-      } else if (response.statusCode == 404) {
-        print(
-            '⚠️ Featured endpoint not found - feature may not be implemented');
-      }
 
+        return restaurants;
+      }
       return [];
     } catch (e) {
-      print('❌ Get featured restaurants error: $e');
+      print('❌ Get restaurants by city error: $e');
       return [];
     }
   }
 
+  /// GET /api/restaurants/nearby/:lat/:lon/:radius
+  Future<List<dynamic>> getNearbyRestaurants({
+    required double lat,
+    required double lon,
+    double radius = 10,
+  }) async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/nearby/$lat/$lon/$radius'),
+            headers: headers,
+          )
+          .timeout(EnvConfig.requestTimeout);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final restaurants = data['success'] == true
+            ? List<Map<String, dynamic>>.from(data['data'] ?? [])
+            : (data is List ? List<Map<String, dynamic>>.from(data) : []);
+
+        for (var restaurant in restaurants) {
+          _calculateDistanceForRestaurant(restaurant, lat, lon);
+        }
+
+        return restaurants;
+      }
+      return [];
+    } catch (e) {
+      print('❌ Get nearby restaurants error: $e');
+      return [];
+    }
+  }
+
+  /// GET /api/restaurants/trending/:city
   Future<List<Map<String, dynamic>>> getTrendingRestaurants({
     required String city,
   }) async {
@@ -266,19 +305,15 @@ class RestaurantService {
 
       final response = await http
           .get(
-            Uri.parse('$baseUrl/restaurants/trending/$encodedCity'),
+            Uri.parse('$baseUrl/trending/$encodedCity'),
             headers: headers,
           )
           .timeout(EnvConfig.requestTimeout);
 
-      print('📈 Trending Response: ${response.statusCode}');
-
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
 
-        // Handle null response
         if (decoded == null) {
-          print('⚠️ Trending returned null');
           return [];
         }
 
@@ -306,200 +341,82 @@ class RestaurantService {
     }
   }
 
-  /// GET /restaurants/{restaurant_id}
-  Future<Restaurant?> getRestaurant(String restaurantId) async {
-    try {
-      final headers = await _getHeaders();
-      final response = await http
-          .get(
-            Uri.parse('$baseUrl/restaurants/$restaurantId'),
-            headers: headers,
-          )
-          .timeout(EnvConfig.requestTimeout);
-
-      if (response.statusCode == 200) {
-        final body = jsonDecode(response.body);
-        if (body['success'] == true) {
-          final restaurantData = body['data'] as Map<String, dynamic>;
-
-          // ✅ Get user location for distance calculation
-          final position = await _locationService.getCurrentLocation();
-
-          // Calculate distance
-          _calculateDistanceForRestaurant(
-            restaurantData,
-            position?.latitude,
-            position?.longitude,
-          );
-
-          return Restaurant.fromJson(restaurantData);
-        }
-      }
-      return null;
-    } catch (e) {
-      print('❌ Get restaurant error: $e');
-      return null;
-    }
-  }
-
-  /// GET /users/restaurants/by-city
-  Future<List> getRestaurantsByCity(String city) async {
-    try {
-      final headers = await _getHeaders();
-      final position = await _locationService.getCurrentLocation();
-
-      final response = await http
-          .get(
-            Uri.parse(
-                '$baseUrl/restaurants/by-city?city=${Uri.encodeComponent(city)}'),
-            headers: headers,
-          )
-          .timeout(EnvConfig.requestTimeout);
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final restaurants = data['success'] == true
-            ? (data['data'] ?? [])
-            : (data is List ? data : []);
-
-        // ✅ Calculate distances
-        for (var restaurant in restaurants) {
-          _calculateDistanceForRestaurant(
-            restaurant as Map<String, dynamic>,
-            position?.latitude,
-            position?.longitude,
-          );
-        }
-
-        return restaurants;
-      }
-      return [];
-    } catch (e) {
-      print('❌ Get restaurants by city error: $e');
-      return [];
-    }
-  }
-
-  /// GET /users/restaurants/nearby
-  Future<List> getNearbyRestaurants({
-    required double lat,
-    required double lon,
-    double radius = 10,
+  /// GET /api/restaurants/featured/:lat/:lon
+  Future<List<Map<String, dynamic>>> getFeaturedRestaurants({
+    double? lat,
+    double? lon,
   }) async {
     try {
+      if (lat == null || lon == null) {
+        print('⚠️ Location not available for featured restaurants');
+        return [];
+      }
+
       final headers = await _getHeaders();
+
       final response = await http
           .get(
-            Uri.parse(
-                '$baseUrl/restaurants/nearby?lat=$lat&lon=$lon&radius=$radius'),
+            Uri.parse('$baseUrl/featured/$lat/$lon'),
             headers: headers,
           )
           .timeout(EnvConfig.requestTimeout);
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final restaurants = data['success'] == true
-            ? (data['data'] ?? [])
-            : (data is List ? data : []);
+        final decoded = jsonDecode(response.body);
 
-        // ✅ Calculate distances
-        for (var restaurant in restaurants) {
-          _calculateDistanceForRestaurant(
-            restaurant as Map<String, dynamic>,
-            lat,
-            lon,
-          );
+        if (decoded is Map &&
+            decoded['success'] == true &&
+            decoded['data'] != null) {
+          final restaurants = List<Map<String, dynamic>>.from(decoded['data']);
+
+          for (var restaurant in restaurants) {
+            _calculateDistanceForRestaurant(restaurant, lat, lon);
+          }
+
+          return restaurants;
         }
-
-        return restaurants;
       }
+
       return [];
     } catch (e) {
-      print('❌ Get nearby restaurants error: $e');
+      print('❌ Get featured restaurants error: $e');
       return [];
     }
   }
 
-  /// GET /users/restaurants/{restaurant_id}/beverages
-  Future<List> getRestaurantBeverages(String restaurantId) async {
+  // ============ RATINGS ============
+
+  /// GET /api/restaurants/:restaurantId/ratings
+  Future<Map<String, dynamic>?> getRestaurantRatings(
+      String restaurantId) async {
     try {
       final headers = await _getHeaders();
       final response = await http
           .get(
-            Uri.parse('$baseUrl/restaurants/$restaurantId/beverages'),
+            Uri.parse('$baseUrl/$restaurantId/ratings'),
             headers: headers,
           )
           .timeout(EnvConfig.requestTimeout);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return data['success'] == true
-            ? (data['data'] ?? [])
-            : (data is List ? data : []);
+        return data['success'] == true ? data['data'] : data;
       }
-      return [];
-    } catch (e) {
-      print('❌ Get restaurant beverages error: $e');
-      return [];
-    }
-  }
-
-  /// GET /users/restaurants/{restaurant_id}/events
-  Future<List> getRestaurantEvents(String restaurantId) async {
-    try {
-      final headers = await _getHeaders();
-      final response = await http
-          .get(
-            Uri.parse('$baseUrl/restaurants/$restaurantId/events'),
-            headers: headers,
-          )
-          .timeout(EnvConfig.requestTimeout);
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return data['success'] == true
-            ? (data['data'] ?? [])
-            : (data is List ? data : []);
-      }
-      return [];
-    } catch (e) {
-      print('❌ Get restaurant events error: $e');
-      return [];
-    }
-  }
-
-  /// GET /users/restaurants/{restaurant_id}/ratings
-  Future<List> getRestaurantRatings(String restaurantId) async {
-    try {
-      final headers = await _getHeaders();
-      final response = await http
-          .get(
-            Uri.parse('$baseUrl/restaurants/$restaurantId/ratings'),
-            headers: headers,
-          )
-          .timeout(EnvConfig.requestTimeout);
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return data['success'] == true
-            ? (data['data'] ?? [])
-            : (data is List ? data : []);
-      }
-      return [];
+      return null;
     } catch (e) {
       print('❌ Get restaurant ratings error: $e');
-      return [];
+      return null;
     }
   }
 
-  /// POST /users/restaurants/{restaurant_id}/rate
+  /// POST /api/restaurants/:restaurantId/rate
   Future<bool> rateRestaurant(
       String restaurantId, Map<String, dynamic> rating) async {
     try {
       final headers = await _getHeaders();
       final response = await http
           .post(
-            Uri.parse('$baseUrl/restaurants/$restaurantId/rate'),
+            Uri.parse('$baseUrl/$restaurantId/rate'),
             headers: headers,
             body: jsonEncode(rating),
           )
@@ -512,13 +429,15 @@ class RestaurantService {
     }
   }
 
-  /// GET /users/restaurants/{restaurant_id}/menu-photos
+  // ============ PHOTOS ============
+
+  /// GET /api/restaurants/:restaurantId/menu-photos
   Future<List> getMenuPhotos(String restaurantId) async {
     try {
       final headers = await _getHeaders();
       final response = await http
           .get(
-            Uri.parse('$baseUrl/restaurants/$restaurantId/menu-photos'),
+            Uri.parse('$baseUrl/$restaurantId/menu-photos'),
             headers: headers,
           )
           .timeout(EnvConfig.requestTimeout);
@@ -536,13 +455,13 @@ class RestaurantService {
     }
   }
 
-  /// GET /users/restaurants/{restaurant_id}/food-gallery
+  /// GET /api/restaurants/:restaurantId/food-gallery
   Future<List> getFoodGallery(String restaurantId) async {
     try {
       final headers = await _getHeaders();
       final response = await http
           .get(
-            Uri.parse('$baseUrl/restaurants/$restaurantId/food-gallery'),
+            Uri.parse('$baseUrl/$restaurantId/food-gallery'),
             headers: headers,
           )
           .timeout(EnvConfig.requestTimeout);
@@ -560,28 +479,27 @@ class RestaurantService {
     }
   }
 
-  /// GET /users/restaurants/{restaurant_id}/expert-recommendations
-  Future<List> getExpertRecommendations(String restaurantId) async {
+  /// POST /api/restaurants/:restaurantId/photos
+  /// ✅ NEW: Moved from user_service
+  Future<bool> uploadRestaurantPhotos(
+    String restaurantId,
+    List<String> photoUrls,
+  ) async {
     try {
       final headers = await _getHeaders();
       final response = await http
-          .get(
-            Uri.parse(
-                '$baseUrl/restaurants/$restaurantId/expert-recommendations'),
+          .post(
+            Uri.parse('$baseUrl/$restaurantId/photos'),
             headers: headers,
+            body: jsonEncode({'photos': photoUrls}),
           )
           .timeout(EnvConfig.requestTimeout);
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return data['success'] == true
-            ? (data['data'] ?? [])
-            : (data is List ? data : []);
-      }
-      return [];
+      print('📤 Upload restaurant photos: ${response.statusCode}');
+      return response.statusCode == 200 || response.statusCode == 201;
     } catch (e) {
-      print('❌ Get expert recommendations error: $e');
-      return [];
+      print('❌ Upload restaurant photos error: $e');
+      return false;
     }
   }
 }

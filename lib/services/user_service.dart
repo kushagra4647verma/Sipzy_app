@@ -1,5 +1,5 @@
 // lib/services/user_service.dart
-// ENHANCED VERSION - BATCH 1: User Profile & Stats APIs
+// ✅ FIXED: Removed photo upload methods (moved to specific services)
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -28,6 +28,7 @@ class UserService {
 
   // ============ USER PROFILE ============
 
+  /// GET /api/users/get_my_profile
   Future<Map<String, dynamic>?> getMyProfile() async {
     try {
       final headers = await _getHeaders();
@@ -49,7 +50,7 @@ class UserService {
     }
   }
 
-  /// PATCH /users/me
+  /// PATCH /api/users/patch_my_profile
   Future<bool> updateProfile(Map<String, dynamic> updates) async {
     try {
       final headers = await _getHeaders();
@@ -68,7 +69,9 @@ class UserService {
     }
   }
 
-  /// GET /users/{user_id}/stats
+  // ============ STATS & BADGES ============
+
+  /// GET /api/users/get_stats/:userId/stats
   Future<Map<String, dynamic>> getUserStats(String userId) async {
     try {
       final headers = await _getHeaders();
@@ -102,48 +105,79 @@ class UserService {
     }
   }
 
-  /// GET /users/{user_id}/ratings
-  // Add this method to your UserService class
-
-  /// GET /users/ratings - Get current user's ratings
-  Future<List> getUserRatings(String userId) async {
+  /// GET /api/users/get_ratings/:userId/ratings
+  Future<Map<String, dynamic>?> getUserRatings(String userId) async {
     try {
       final headers = await _getHeaders();
-
-      // Try both endpoints
-      var response = await http
+      final response = await http
           .get(
-            Uri.parse('$baseUrl/ratings'),
+            Uri.parse('$baseUrl/get_ratings/$userId/ratings'),
             headers: headers,
           )
           .timeout(EnvConfig.requestTimeout);
 
-      if (response.statusCode != 200) {
-        // Try alternative endpoint
-        response = await http
-            .get(
-              Uri.parse('$baseUrl/users/$userId/ratings'),
-              headers: headers,
-            )
-            .timeout(EnvConfig.requestTimeout);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['success'] == true ? data['data'] : data;
       }
+      return null;
+    } catch (e) {
+      print('❌ Get user ratings error: $e');
+      return null;
+    }
+  }
+
+  /// GET /api/users/get_my_badges
+  Future<List<Map<String, dynamic>>> getBadges() async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/get_my_badges'),
+            headers: headers,
+          )
+          .timeout(EnvConfig.requestTimeout);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return data['success'] == true
-            ? (data['data'] ?? [])
-            : (data is List ? data : []);
+
+        if (data['success'] == true && data['data'] != null) {
+          return List<Map<String, dynamic>>.from(data['data']);
+        }
+
+        if (data is List) {
+          return List<Map<String, dynamic>>.from(data);
+        }
       }
       return [];
     } catch (e) {
-      print('❌ Get user ratings error: $e');
+      print('❌ Get badges error: $e');
       return [];
     }
   }
+
+  /// POST /api/users/post_my_badges/:badgeId/claim
+  Future<bool> claimBadge(String badgeId) async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/post_my_badges/$badgeId/claim'),
+            headers: headers,
+          )
+          .timeout(EnvConfig.requestTimeout);
+
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      print('❌ Claim badge error: $e');
+      return false;
+    }
+  }
+
   // ============ DIARY ============
 
-  /// GET /users/diary
-  Future<List> getDiary() async {
+  /// GET /api/diary/get_diary
+  Future<List<Map<String, dynamic>>> getDiary() async {
     try {
       final headers = await _getHeaders();
       final response = await http
@@ -155,9 +189,14 @@ class UserService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return data['success'] == true
-            ? (data['data'] ?? [])
-            : (data is List ? data : []);
+
+        if (data['success'] == true && data['data'] != null) {
+          return List<Map<String, dynamic>>.from(data['data']);
+        }
+
+        if (data is List) {
+          return List<Map<String, dynamic>>.from(data);
+        }
       }
       return [];
     } catch (e) {
@@ -166,7 +205,7 @@ class UserService {
     }
   }
 
-  /// POST /users/diary/
+  /// POST /api/diary/post_diary
   Future<bool> addDiaryEntry(Map<String, dynamic> entry) async {
     try {
       final headers = await _getHeaders();
@@ -185,7 +224,7 @@ class UserService {
     }
   }
 
-  /// PATCH /users/diary/{diary_entry_id}
+  /// PATCH /api/diary/patch_diary/:entryId
   Future<bool> updateDiaryEntry(
       String entryId, Map<String, dynamic> updates) async {
     try {
@@ -205,7 +244,7 @@ class UserService {
     }
   }
 
-  /// DELETE /users/diary/{diary_entry_id}
+  /// DELETE /api/diary/delete_diary/:entryId
   Future<bool> deleteDiaryEntry(String entryId) async {
     try {
       final headers = await _getHeaders();
@@ -225,8 +264,8 @@ class UserService {
 
   // ============ BOOKMARKS ============
 
-  /// GET /users/bookmarks
-  Future<List> getBookmarks() async {
+  /// GET /api/bookmarks/get_bookmarks
+  Future<List<Map<String, dynamic>>> getBookmarks() async {
     try {
       final headers = await _getHeaders();
       final response = await http
@@ -238,9 +277,14 @@ class UserService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return data['success'] == true
-            ? (data['data'] ?? [])
-            : (data is List ? data : []);
+
+        if (data['success'] == true && data['data'] != null) {
+          return List<Map<String, dynamic>>.from(data['data']);
+        }
+
+        if (data is List) {
+          return List<Map<String, dynamic>>.from(data);
+        }
       }
       return [];
     } catch (e) {
@@ -249,8 +293,8 @@ class UserService {
     }
   }
 
-  /// POST /users/bookmarks/{restaurant_id}
-  Future<bool> toggleBookmark(String restaurantId) async {
+  /// POST /api/bookmarks/post_bookmark/:restaurantId
+  Future<bool> addBookmark(String restaurantId) async {
     try {
       final headers = await _getHeaders();
       final response = await http
@@ -260,14 +304,14 @@ class UserService {
           )
           .timeout(EnvConfig.requestTimeout);
 
-      return response.statusCode == 200;
+      return response.statusCode == 200 || response.statusCode == 201;
     } catch (e) {
-      print('❌ Toggle bookmark error: $e');
+      print('❌ Add bookmark error: $e');
       return false;
     }
   }
 
-  /// DELETE /users/bookmarks/{restaurant_id}
+  /// DELETE /api/bookmarks/delete_bookmark/:restaurantId
   Future<bool> removeBookmark(String restaurantId) async {
     try {
       final headers = await _getHeaders();
@@ -287,8 +331,8 @@ class UserService {
 
   // ============ FRIENDS ============
 
-  /// GET /users/friends
-  Future<List> getFriends() async {
+  /// GET /api/friends/get_friend
+  Future<List<Map<String, dynamic>>> getFriends() async {
     try {
       final headers = await _getHeaders();
       final response = await http
@@ -300,9 +344,14 @@ class UserService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return data['success'] == true
-            ? (data['data'] ?? [])
-            : (data is List ? data : []);
+
+        if (data['success'] == true && data['data'] != null) {
+          return List<Map<String, dynamic>>.from(data['data']);
+        }
+
+        if (data is List) {
+          return List<Map<String, dynamic>>.from(data);
+        }
       }
       return [];
     } catch (e) {
@@ -311,13 +360,13 @@ class UserService {
     }
   }
 
-  /// POST /users/friends/{user_id}
-  Future<bool> addFriend(String userId) async {
+  /// POST /api/friends/post_friend/:friendId
+  Future<bool> addFriend(String friendId) async {
     try {
       final headers = await _getHeaders();
       final response = await http
           .post(
-            Uri.parse('$baseUrl/friends/post_friend/$userId'),
+            Uri.parse('$baseUrl/friends/post_friend/$friendId'),
             headers: headers,
           )
           .timeout(EnvConfig.requestTimeout);
@@ -329,13 +378,13 @@ class UserService {
     }
   }
 
-  /// DELETE /users/friends/{user_id}
-  Future<bool> removeFriend(String userId) async {
+  /// DELETE /api/friends/delete_friend/:friendId
+  Future<bool> removeFriend(String friendId) async {
     try {
       final headers = await _getHeaders();
       final response = await http
           .delete(
-            Uri.parse('$baseUrl/friends/delete_friend/$userId'),
+            Uri.parse('$baseUrl/friends/delete_friend/$friendId'),
             headers: headers,
           )
           .timeout(EnvConfig.requestTimeout);
@@ -347,7 +396,7 @@ class UserService {
     }
   }
 
-  /// POST /users/friends/phone
+  /// POST /api/friends/phone
   Future<Map<String, dynamic>?> addFriendByPhone(String phone) async {
     try {
       final headers = await _getHeaders();
@@ -369,8 +418,8 @@ class UserService {
     }
   }
 
-  /// GET /users/friends/search?query={name}
-  Future<List> searchFriends(String query) async {
+  /// GET /api/friends/search?query={name}
+  Future<List<Map<String, dynamic>>> searchFriends(String query) async {
     try {
       final headers = await _getHeaders();
       final response = await http
@@ -383,9 +432,14 @@ class UserService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return data['success'] == true
-            ? (data['data'] ?? [])
-            : (data is List ? data : []);
+
+        if (data['success'] == true && data['data'] != null) {
+          return List<Map<String, dynamic>>.from(data['data']);
+        }
+
+        if (data is List) {
+          return List<Map<String, dynamic>>.from(data);
+        }
       }
       return [];
     } catch (e) {
@@ -394,95 +448,9 @@ class UserService {
     }
   }
 
-  // ============ BADGES ============
-
-  /// GET /users/me/badges
-  Future<List> getBadges() async {
-    try {
-      final headers = await _getHeaders();
-      final response = await http
-          .get(
-            Uri.parse('$baseUrl/get_my_badges'),
-            headers: headers,
-          )
-          .timeout(EnvConfig.requestTimeout);
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return data['success'] == true
-            ? (data['data'] ?? [])
-            : (data is List ? data : []);
-      }
-      return [];
-    } catch (e) {
-      print('❌ Get badges error: $e');
-      return [];
-    }
-  }
-
-  /// POST /users/me/badges/{badge_id}/claim
-  Future<bool> claimBadge(String badgeId) async {
-    try {
-      final headers = await _getHeaders();
-      final response = await http
-          .post(
-            Uri.parse('$baseUrl/post_my_badges/$badgeId/claim'),
-            headers: headers,
-          )
-          .timeout(EnvConfig.requestTimeout);
-
-      return response.statusCode == 200 || response.statusCode == 201;
-    } catch (e) {
-      print('❌ Claim badge error: $e');
-      return false;
-    }
-  }
-
-  // ============ PHOTO UPLOADS - ✅ NEW ============
-
-  /// POST /users/restaurants/{restaurant_id}/photos
-  Future<bool> uploadRestaurantPhoto(
-      String restaurantId, Map<String, dynamic> photoData) async {
-    try {
-      final headers = await _getHeaders();
-      final response = await http
-          .post(
-            Uri.parse('$baseUrl/restaurants/$restaurantId/photos'),
-            headers: headers,
-            body: jsonEncode(photoData),
-          )
-          .timeout(EnvConfig.requestTimeout);
-
-      return response.statusCode == 200 || response.statusCode == 201;
-    } catch (e) {
-      print('❌ Upload restaurant photo error: $e');
-      return false;
-    }
-  }
-
-  /// POST /users/beverages/{beverage_id}/photos
-  Future<bool> uploadBeveragePhoto(
-      String beverageId, Map<String, dynamic> photoData) async {
-    try {
-      final headers = await _getHeaders();
-      final response = await http
-          .post(
-            Uri.parse('$baseUrl/beverages/$beverageId/photos'),
-            headers: headers,
-            body: jsonEncode(photoData),
-          )
-          .timeout(EnvConfig.requestTimeout);
-
-      return response.statusCode == 200 || response.statusCode == 201;
-    } catch (e) {
-      print('❌ Upload beverage photo error: $e');
-      return false;
-    }
-  }
-
   // ============ HEALTH CHECK ============
 
-  /// GET /users/health
+  /// GET /api/users/health
   Future<bool> checkHealth() async {
     try {
       final response = await http
