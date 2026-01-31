@@ -1,5 +1,5 @@
 // lib/services/user_service.dart
-// ✅ FIXED: Removed photo upload methods (moved to specific services)
+// ✅ FIXED: Added image and sharedToFeed fields to addDiaryEntry
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -55,6 +55,11 @@ class UserService {
   Future<bool> updateProfile(Map<String, dynamic> updates) async {
     try {
       final headers = await _getHeaders();
+
+      debugPrint("👤 Updating profile");
+      debugPrint("👤 Update payload: ${jsonEncode(updates)}");
+      debugPrint("👤 URL: $baseUrl/patch_my_profile");
+
       final response = await http
           .patch(
             Uri.parse('$baseUrl/patch_my_profile'),
@@ -63,9 +68,19 @@ class UserService {
           )
           .timeout(EnvConfig.requestTimeout);
 
-      return response.statusCode == 200;
-    } catch (e) {
-      print('❌ Update profile error: $e');
+      debugPrint("📥 Profile update response status: ${response.statusCode}");
+      debugPrint("📥 Profile update response body: ${response.body}");
+
+      if (response.statusCode == 200) {
+        debugPrint("✅ Profile updated successfully");
+        return true;
+      }
+
+      debugPrint("❌ Profile update failed");
+      return false;
+    } catch (e, stackTrace) {
+      debugPrint('❌ Update profile error: $e');
+      debugPrint('Stack trace: $stackTrace');
       return false;
     }
   }
@@ -207,23 +222,35 @@ class UserService {
   }
 
   /// POST /api/diary/post_diary
+  /// Note: sharedToFeed parameter kept for future use but not sent to API (not supported yet)
   Future<bool> addDiaryEntry({
     required String beverageName,
     required String restaurant,
     required String notes,
     required int rating,
+    String? image,
+    bool sharedToFeed = false, // Kept for UI but not sent to backend
   }) async {
     try {
       final headers = await _getHeaders();
 
+      // ✅ Build payload with only supported fields
       final body = {
         "bev_name": beverageName.trim(),
         "restaurant": restaurant.trim(),
         "notes": notes.trim(),
-        "rating": rating, // ✅ int
+        "rating": rating,
       };
 
-      debugPrint("📤 Diary payload: $body");
+      // ✅ Add optional fields only if they have values
+      if (image != null && image.isNotEmpty) {
+        body["image"] = image;
+      }
+
+      // ❌ shared_to_feed is NOT supported by the API - removed
+
+      debugPrint("📤 Diary POST to: $baseUrl/diary/post_diary");
+      debugPrint("📤 Diary payload: ${jsonEncode(body)}");
 
       final response = await http
           .post(
@@ -233,12 +260,22 @@ class UserService {
           )
           .timeout(EnvConfig.requestTimeout);
 
-      debugPrint("📥 Diary response: ${response.statusCode}");
-      debugPrint(response.body);
+      debugPrint("📥 Diary response status: ${response.statusCode}");
+      debugPrint("📥 Diary response body: ${response.body}");
 
-      return response.statusCode == 200 || response.statusCode == 201;
-    } catch (e) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final responseData = jsonDecode(response.body);
+        if (responseData['success'] == true) {
+          debugPrint("✅ Diary entry created successfully");
+          return true;
+        }
+      }
+
+      debugPrint("❌ Diary entry creation failed");
+      return false;
+    } catch (e, stackTrace) {
       debugPrint('❌ Add diary error: $e');
+      debugPrint('Stack trace: $stackTrace');
       return false;
     }
   }
@@ -248,6 +285,10 @@ class UserService {
       String entryId, Map<String, dynamic> updates) async {
     try {
       final headers = await _getHeaders();
+
+      debugPrint("📝 Updating diary entry: $entryId");
+      debugPrint("📝 Update payload: ${jsonEncode(updates)}");
+
       final response = await http
           .patch(
             Uri.parse('$baseUrl/diary/patch_diary/$entryId'),
@@ -256,9 +297,19 @@ class UserService {
           )
           .timeout(EnvConfig.requestTimeout);
 
-      return response.statusCode == 200;
-    } catch (e) {
-      print('❌ Update diary error: $e');
+      debugPrint("📥 Update response status: ${response.statusCode}");
+      debugPrint("📥 Update response body: ${response.body}");
+
+      if (response.statusCode == 200) {
+        debugPrint("✅ Diary entry updated successfully");
+        return true;
+      }
+
+      debugPrint("❌ Diary entry update failed");
+      return false;
+    } catch (e, stackTrace) {
+      debugPrint('❌ Update diary error: $e');
+      debugPrint('Stack trace: $stackTrace');
       return false;
     }
   }

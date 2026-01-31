@@ -159,6 +159,7 @@ class _SocialPageState extends State<SocialPage>
   }
   // ============ DIARY CRUD OPERATIONS ============
 
+  // ✅ FIXED: Use actual parameters instead of hardcoded values
   Future<void> addDiaryEntry({
     required String bevName,
     required String restaurant,
@@ -176,10 +177,12 @@ class _SocialPageState extends State<SocialPage>
       print('📝 Adding diary entry: $bevName');
 
       final success = await _userService.addDiaryEntry(
-        beverageName: "Espresso",
-        restaurant: "Restaurant Name",
-        notes: "Had amazing pasta",
-        rating: 5,
+        beverageName: bevName,
+        restaurant: restaurant,
+        notes: notes ?? '',
+        rating: rating,
+        image: image,
+        sharedToFeed: sharedToFeed,
       );
 
       if (success) {
@@ -302,21 +305,30 @@ class _SocialPageState extends State<SocialPage>
   // ============ USER PROFILE OPERATIONS ============
   Future<void> updateProfile(Map<String, dynamic> updates) async {
     try {
+      print('👤 Updating profile with: $updates');
+
       final success = await _userService.updateProfile(updates);
 
       if (success) {
         _showToast('Profile updated');
+
+        print('✅ Fetching updated profile...');
         final updatedProfile = await _userService.getMyProfile();
+
         if (updatedProfile != null && mounted) {
+          print('✅ Profile fetched: $updatedProfile');
           setState(() {
             widget.user.addAll(updatedProfile);
           });
+        } else {
+          print('⚠️ Could not fetch updated profile');
         }
       } else {
         _showToast('Failed to update profile', isError: true);
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       print('❌ Update profile error: $e');
+      print('Stack trace: $stackTrace');
       _showToast('Error updating profile', isError: true);
     }
   }
@@ -553,6 +565,7 @@ class _SocialPageState extends State<SocialPage>
 
   void _showEditProfileDialog() {
     final nameCtrl = TextEditingController(text: widget.user['name']);
+    final phoneCtrl = TextEditingController(text: widget.user['phone']);
     final emailCtrl = TextEditingController(text: widget.user['email']);
 
     showDialog(
@@ -561,21 +574,40 @@ class _SocialPageState extends State<SocialPage>
         backgroundColor: AppTheme.card,
         title:
             const Text('Edit Profile', style: TextStyle(color: Colors.white)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameCtrl,
-              decoration: const InputDecoration(labelText: 'Name'),
-              style: const TextStyle(color: Colors.white),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: emailCtrl,
-              decoration: const InputDecoration(labelText: 'Email'),
-              style: const TextStyle(color: Colors.white),
-            ),
-          ],
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Name',
+                  labelStyle: TextStyle(color: AppTheme.textSecondary),
+                ),
+                style: const TextStyle(color: Colors.white),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: phoneCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Phone',
+                  labelStyle: TextStyle(color: AppTheme.textSecondary),
+                ),
+                style: const TextStyle(color: Colors.white),
+                keyboardType: TextInputType.phone,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: emailCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  labelStyle: TextStyle(color: AppTheme.textSecondary),
+                ),
+                style: const TextStyle(color: Colors.white),
+                keyboardType: TextInputType.emailAddress,
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -584,12 +616,31 @@ class _SocialPageState extends State<SocialPage>
           ),
           ElevatedButton(
             onPressed: () {
-              updateProfile({
-                'name': nameCtrl.text,
-                'email': emailCtrl.text,
-              });
+              // Build update payload with only changed/non-empty fields
+              final updates = <String, dynamic>{};
+
+              if (nameCtrl.text.trim().isNotEmpty) {
+                updates['name'] = nameCtrl.text.trim();
+              }
+              if (phoneCtrl.text.trim().isNotEmpty) {
+                updates['phone'] = phoneCtrl.text.trim();
+              }
+              if (emailCtrl.text.trim().isNotEmpty) {
+                updates['email'] = emailCtrl.text.trim();
+              }
+
+              if (updates.isEmpty) {
+                _showToast('No fields to update', isError: true);
+                return;
+              }
+
               Navigator.pop(context);
+              updateProfile(updates);
             },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primary,
+              foregroundColor: Colors.black,
+            ),
             child: const Text('Save'),
           ),
         ],
@@ -792,7 +843,12 @@ class _SocialPageState extends State<SocialPage>
 
   Widget _buildDiaryCard(Map entry) {
     // ✅ FIX: Handle multiple possible field names from API
-    final entryId = entry['entryId'] ?? entry['entryid'] ?? entry['id'];
+    print('📋 Diary entry data: $entry');
+    final entryId = entry['entry_id'] ??
+        entry['entryId'] ??
+        entry['entryid'] ??
+        entry['id'];
+    print('🆔 Extracted entry ID: $entryId');
     final bevName = entry['bevName'] ?? entry['bev_name'] ?? 'Drink';
     final restaurant = entry['restaurant'] ?? '';
     final rating = entry['rating'] ?? 0;
@@ -908,9 +964,17 @@ class _SocialPageState extends State<SocialPage>
   }
 
   void _showEditDiaryDialog(Map entry) {
-    final entryId = entry['entryId'];
+    // ✅ FIX: Extract entry_id with all possible field names
+    final entryId = entry['entry_id'] ??
+        entry['entryId'] ??
+        entry['entryid'] ??
+        entry['id'];
 
-    final nameController = TextEditingController(text: entry['bevName'] ?? '');
+    print('✏️ Editing diary entry with ID: $entryId');
+
+    // ✅ FIX: Extract fields with all possible names
+    final nameController = TextEditingController(
+        text: entry['bevName'] ?? entry['bev_name'] ?? '');
     final restaurantController =
         TextEditingController(text: entry['restaurant'] ?? '');
     final notesController = TextEditingController(text: entry['notes'] ?? '');
@@ -1010,8 +1074,9 @@ class _SocialPageState extends State<SocialPage>
               onPressed: () async {
                 Navigator.pop(context);
 
+                // ✅ FIX: Send snake_case field names to match API expectations
                 await updateDiaryEntry(entryId, {
-                  'bevName': nameController.text.trim(),
+                  'bev_name': nameController.text.trim(),
                   'restaurant': restaurantController.text.trim(),
                   'rating': rating,
                   'notes': notesController.text.trim().isNotEmpty
@@ -1284,7 +1349,10 @@ class _SocialPageState extends State<SocialPage>
   }
 
   void _viewDiaryEntry(Map entry) {
-    final entryId = entry['entryId'] ?? entry['entryid'] ?? entry['id'];
+    final entryId = entry['entry_id'] ??
+        entry['entryId'] ??
+        entry['entryid'] ??
+        entry['id'];
     final bevName = entry['bevName'] ?? entry['bev_name'] ?? 'Drink';
     final restaurant = entry['restaurant'] ?? '';
     final rating = entry['rating'] ?? 0;
@@ -1460,7 +1528,10 @@ class _SocialPageState extends State<SocialPage>
   }
 
   void _confirmDeleteDiary(dynamic entryId) {
+    print('🗑️ Attempting to delete diary entry with ID: $entryId');
+
     if (entryId == null) {
+      print('❌ Entry ID is null!');
       _showToast('Invalid entry ID', isError: true);
       return;
     }
@@ -1483,6 +1554,7 @@ class _SocialPageState extends State<SocialPage>
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
+              print('🗑️ Calling deleteDiaryEntry with: ${entryId.toString()}');
               deleteDiaryEntry(entryId.toString());
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
