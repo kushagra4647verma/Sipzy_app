@@ -83,13 +83,31 @@ class _SocialPageState extends State<SocialPage>
         _userService.getFriends(), // 2
         _userService.getBadges(), // 3
         _userService.getUserStats(user.id), // 4
+        _userService.getUserRatings(user.id), // 5
       ]);
 
       final diary = List<Map<String, dynamic>>.from(results[0] as List);
       final bookmarks = List<Map<String, dynamic>>.from(results[1] as List);
       final friends = List<Map<String, dynamic>>.from(results[2] as List);
       final badges = List<Map<String, dynamic>>.from(results[3] as List);
-      final stats = Map<String, dynamic>.from(results[4] as Map);
+      final fetchedStats = Map<String, dynamic>.from(results[4] as Map);
+
+      // Handle ratings response
+      final ratingsData = results[5] as Map<String, dynamic>?;
+      List<Map<String, dynamic>> fetchedRatings = [];
+
+      if (ratingsData != null) {
+        final beverageRatings = ratingsData['beverageRatings'] as List? ?? [];
+        fetchedRatings.addAll(beverageRatings
+            .map((r) => Map<String, dynamic>.from(r as Map))
+            .toList());
+
+        final restaurantRatings =
+            ratingsData['restaurantRatings'] as List? ?? [];
+        fetchedRatings.addAll(restaurantRatings
+            .map((r) => Map<String, dynamic>.from(r as Map))
+            .toList());
+      }
 
       if (!mounted) return;
 
@@ -98,20 +116,47 @@ class _SocialPageState extends State<SocialPage>
         this.bookmarks = bookmarks;
         this.friends = friends;
         this.badges = badges;
-        userStats = stats;
+        ratings = fetchedRatings;
+        userStats = fetchedStats;
+
+        stats = {
+          'ratingsCount': fetchedRatings.length,
+          'friendsCount': friends.length,
+          'badgesCount': badges
+              .where((b) => b['earned'] == true || b['claimed'] == true)
+              .length,
+        };
+
+        debugPrint("✅ Using calculated stats instead of API stats");
+        debugPrint("   API returned: $fetchedStats");
+        debugPrint("   Calculated:   $stats");
+
+        loading = false;
+        hasError = false;
       });
 
       debugPrint("✅ Social data fetched successfully");
+      debugPrint("📊 Stats: $stats");
+      debugPrint("⭐ Ratings: ${ratings.length}");
+      debugPrint("📖 Diary entries: ${diaryEntries.length}");
+      debugPrint("🔖 Bookmarks: ${bookmarks.length}");
+      debugPrint("👥 Friends: ${friends.length}");
     } catch (e, st) {
       debugPrint("❌ Social fetchAll error: $e");
       debugPrint("$st");
+
+      if (mounted) {
+        setState(() {
+          hasError = true;
+          loading = false;
+        });
+      }
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
       }
     }
   }
-
   // ============ DIARY CRUD OPERATIONS ============
 
   Future<void> addDiaryEntry({
