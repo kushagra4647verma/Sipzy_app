@@ -23,7 +23,7 @@ class _GroupMixMagicDialogState extends State<GroupMixMagicDialog> {
 
   int _participants = 3;
   List<String?> _baseDrinks = [];
-  List<Map<String, dynamic>> _results = [];
+  final List<Map<String, dynamic>> _results = [];
   List<String> _availableSpirits() {
     final set = <String>{};
 
@@ -208,7 +208,7 @@ class _GroupMixMagicDialogState extends State<GroupMixMagicDialog> {
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: DropdownButtonFormField<String>(
-                      value: _baseDrinks[i],
+                      initialValue: _baseDrinks[i],
                       dropdownColor: AppTheme.card,
                       hint: Text(
                         'Participant ${i + 1} – Choose spirit',

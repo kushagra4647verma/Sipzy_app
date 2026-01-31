@@ -136,7 +136,7 @@ class _HomePageState extends State<HomePage> {
           restaurants = List<Map<String, dynamic>>.from(
             fetchedRestaurants.map((r) {
               print('🔍 Restaurant data: $r'); // Add this line
-              return r is Map<String, dynamic> ? r : {};
+              return r;
             }),
           );
         });

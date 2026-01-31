@@ -425,9 +425,9 @@ class _SocialPageState extends State<SocialPage>
         children: [
           Container(
             padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               shape: BoxShape.circle,
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                 colors: [AppTheme.primary, AppTheme.secondary],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -1135,7 +1135,7 @@ class _SocialPageState extends State<SocialPage>
                   children: [
                     Switch(
                       value: shareToFeed,
-                      activeColor: AppTheme.primary,
+                      activeThumbColor: AppTheme.primary,
                       onChanged: (v) => setState(() => shareToFeed = v),
                     ),
                     const SizedBox(width: 8),

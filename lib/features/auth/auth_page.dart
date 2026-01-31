@@ -339,10 +339,10 @@ class _AuthPageState extends State<AuthPage> {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.dark(
+            colorScheme: const ColorScheme.dark(
               primary: AppColors.primary,
               onPrimary: Colors.black,
-              surface: const Color(0xFF2A2A2A),
+              surface: Color(0xFF2A2A2A),
               onSurface: Colors.white,
             ),
           ),
@@ -426,7 +426,7 @@ class _AuthPageState extends State<AuthPage> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(Icons.local_drink, color: AppColors.primary, size: 36),
+        const Icon(Icons.local_drink, color: AppColors.primary, size: 36),
         const SizedBox(width: 8),
         RichText(
           text: const TextSpan(
@@ -470,8 +470,8 @@ class _AuthPageState extends State<AuthPage> {
           style: TextStyle(color: Colors.white70),
         ),
         const SizedBox(height: 24),
-        Row(
-          children: const [
+        const Row(
+          children: [
             Icon(Icons.phone, color: Color(0xFFF5B642), size: 18),
             SizedBox(width: 8),
             Text(
@@ -745,8 +745,8 @@ class _AuthPageState extends State<AuthPage> {
         const SizedBox(height: 24),
 
         // Personal Information Section
-        Row(
-          children: const [
+        const Row(
+          children: [
             Icon(Icons.person, color: Color(0xFFF5B642), size: 18),
             SizedBox(width: 8),
             Text(
@@ -804,7 +804,7 @@ class _AuthPageState extends State<AuthPage> {
         _buildLabel('City', required: false),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
-          value: city.isEmpty ? null : city,
+          initialValue: city.isEmpty ? null : city,
           items: _indianCities.map((cityName) {
             return DropdownMenuItem(
               value: cityName,
@@ -824,8 +824,8 @@ class _AuthPageState extends State<AuthPage> {
         const SizedBox(height: 20),
 
         // Age Verification Section
-        Row(
-          children: const [
+        const Row(
+          children: [
             Icon(Icons.verified_user, color: Color(0xFFF5B642), size: 18),
             SizedBox(width: 8),
             Text(
@@ -899,8 +899,8 @@ class _AuthPageState extends State<AuthPage> {
         const SizedBox(height: 20),
 
         // Location Section
-        Row(
-          children: const [
+        const Row(
+          children: [
             Icon(Icons.location_on, color: Color(0xFFF5B642), size: 18),
             SizedBox(width: 8),
             Text(
@@ -951,7 +951,7 @@ class _AuthPageState extends State<AuthPage> {
               Switch(
                 value: enableLocation,
                 onChanged: (v) => setState(() => enableLocation = v),
-                activeColor: const Color(0xFFF5B642),
+                activeThumbColor: const Color(0xFFF5B642),
               ),
             ],
           ),
@@ -960,8 +960,8 @@ class _AuthPageState extends State<AuthPage> {
         const SizedBox(height: 20),
 
         // Legal Consents Section
-        Row(
-          children: const [
+        const Row(
+          children: [
             Icon(Icons.gavel, color: Color(0xFFF5B642), size: 18),
             SizedBox(width: 8),
             Text(
@@ -1057,8 +1057,8 @@ class _AuthPageState extends State<AuthPage> {
         const SizedBox(height: 20),
 
         // Notifications Section
-        Row(
-          children: const [
+        const Row(
+          children: [
             Icon(Icons.notifications, color: Color(0xFFF5B642), size: 18),
             SizedBox(width: 8),
             Text(
@@ -1110,7 +1110,7 @@ class _AuthPageState extends State<AuthPage> {
               Switch(
                 value: enableNotifications,
                 onChanged: (v) => setState(() => enableNotifications = v),
-                activeColor: const Color(0xFFF5B642),
+                activeThumbColor: const Color(0xFFF5B642),
               ),
             ],
           ),
@@ -1154,7 +1154,7 @@ class _AuthPageState extends State<AuthPage> {
               Switch(
                 value: enableSocialFeatures,
                 onChanged: (v) => setState(() => enableSocialFeatures = v),
-                activeColor: const Color(0xFFF5B642),
+                activeThumbColor: const Color(0xFFF5B642),
               ),
             ],
           ),

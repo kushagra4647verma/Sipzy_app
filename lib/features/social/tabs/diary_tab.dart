@@ -492,7 +492,6 @@ class _DiaryCard extends StatelessWidget {
     final rating = entry['rating'] ?? 0;
     final notes = entry['notes'] ?? '';
     final image = entry['image'];
-    final createdAt = entry['createdAt'] ?? entry['created_at'] ?? '';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
