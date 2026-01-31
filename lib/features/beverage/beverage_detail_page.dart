@@ -34,8 +34,6 @@ class _BeverageDetailPageState extends State<BeverageDetailPage> {
   bool showReviewsDialog = false;
   bool showExpertBreakdown = false;
 
-  int rating = 0;
-  String review = '';
   bool submitting = false;
 
   @override
@@ -93,8 +91,8 @@ class _BeverageDetailPageState extends State<BeverageDetailPage> {
     }
   }
 
-  Future<void> submitRating() async {
-    if (rating == 0) {
+  Future<void> submitRating(int selectedRating, String reviewText) async {
+    if (selectedRating == 0) {
       _toast('Please select a rating', isError: true);
       return;
     }
@@ -105,19 +103,15 @@ class _BeverageDetailPageState extends State<BeverageDetailPage> {
       final success = await _beverageService.rateBeverage(
         widget.beverageId,
         {
-          'rating': rating,
-          'review': review,
+          'rating': selectedRating,
+          'comments': reviewText.isNotEmpty ? reviewText : null,
         },
       );
 
       if (success) {
         _toast('Rating submitted!');
-        setState(() {
-          rating = 0;
-          review = '';
-          showRatingDialog = false;
-        });
-        fetchBeverage();
+        // Refresh beverage data to show updated ratings
+        await fetchBeverage();
       } else {
         _toast('Failed to submit rating', isError: true);
       }
@@ -125,7 +119,9 @@ class _BeverageDetailPageState extends State<BeverageDetailPage> {
       print('❌ Submit rating error: $e');
       _toast('Failed to submit rating', isError: true);
     } finally {
-      setState(() => submitting = false);
+      if (mounted) {
+        setState(() => submitting = false);
+      }
     }
   }
 
@@ -138,8 +134,10 @@ class _BeverageDetailPageState extends State<BeverageDetailPage> {
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           backgroundColor: AppTheme.card,
-          title: const Text('Rate Bangalore Old Fashioned',
-              style: TextStyle(color: Colors.white)),
+          title: Text(
+            'Rate ${beverage?['name'] ?? 'Beverage'}',
+            style: const TextStyle(color: Colors.white),
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -182,21 +180,29 @@ class _BeverageDetailPageState extends State<BeverageDetailPage> {
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              onPressed: () {
-                if (selectedRating > 0) {
-                  Navigator.pop(context);
-                  _toast('Rating submitted!');
-                  setState(() {
-                    // Update local rating
-                  });
-                } else {
-                  _toast('Please select a rating', isError: true);
-                }
-              },
+              onPressed: submitting
+                  ? null
+                  : () {
+                      if (selectedRating > 0) {
+                        Navigator.pop(context);
+                        submitRating(selectedRating, reviewText);
+                      } else {
+                        _toast('Please select a rating', isError: true);
+                      }
+                    },
               style:
                   ElevatedButton.styleFrom(backgroundColor: AppTheme.primary),
-              child: const Text('Submit Rating',
-                  style: TextStyle(color: Colors.black)),
+              child: submitting
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+                      ),
+                    )
+                  : const Text('Submit Rating',
+                      style: TextStyle(color: Colors.black)),
             ),
           ],
         ),

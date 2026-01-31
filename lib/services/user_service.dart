@@ -103,32 +103,43 @@ class UserService {
   }
 
   /// GET /users/{user_id}/ratings
-  Future<List<Map<String, dynamic>>> getUserRatings(String userId) async {
+  // Add this method to your UserService class
+
+  /// GET /users/ratings - Get current user's ratings
+  Future<List> getUserRatings(String userId) async {
     try {
       final headers = await _getHeaders();
-      final response = await http
+
+      // Try both endpoints
+      var response = await http
           .get(
-            Uri.parse('$baseUrl/get_ratings/$userId/ratings'),
+            Uri.parse('$baseUrl/ratings'),
             headers: headers,
           )
           .timeout(EnvConfig.requestTimeout);
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['success'] == true) {
-          return List<Map<String, dynamic>>.from(
-            data['data']['beverageRatings'] ?? [],
-          );
-        }
+      if (response.statusCode != 200) {
+        // Try alternative endpoint
+        response = await http
+            .get(
+              Uri.parse('$baseUrl/users/$userId/ratings'),
+              headers: headers,
+            )
+            .timeout(EnvConfig.requestTimeout);
       }
 
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['success'] == true
+            ? (data['data'] ?? [])
+            : (data is List ? data : []);
+      }
       return [];
     } catch (e) {
-      print('❌ Get ratings error: $e');
+      print('❌ Get user ratings error: $e');
       return [];
     }
   }
-
   // ============ DIARY ============
 
   /// GET /users/diary
