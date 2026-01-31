@@ -1,6 +1,7 @@
 // lib/services/user_service.dart
 // ✅ FIXED: Removed photo upload methods (moved to specific services)
 import 'dart:convert';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/env_config.dart';
@@ -206,20 +207,38 @@ class UserService {
   }
 
   /// POST /api/diary/post_diary
-  Future<bool> addDiaryEntry(Map<String, dynamic> entry) async {
+  Future<bool> addDiaryEntry({
+    required String beverageName,
+    required String restaurant,
+    required String notes,
+    required int rating,
+  }) async {
     try {
       final headers = await _getHeaders();
+
+      final body = {
+        "bev_name": beverageName.trim(),
+        "restaurant": restaurant.trim(),
+        "notes": notes.trim(),
+        "rating": rating, // ✅ int
+      };
+
+      debugPrint("📤 Diary payload: $body");
+
       final response = await http
           .post(
             Uri.parse('$baseUrl/diary/post_diary'),
             headers: headers,
-            body: jsonEncode(entry),
+            body: jsonEncode(body),
           )
           .timeout(EnvConfig.requestTimeout);
 
+      debugPrint("📥 Diary response: ${response.statusCode}");
+      debugPrint(response.body);
+
       return response.statusCode == 200 || response.statusCode == 201;
     } catch (e) {
-      print('❌ Add diary error: $e');
+      debugPrint('❌ Add diary error: $e');
       return false;
     }
   }

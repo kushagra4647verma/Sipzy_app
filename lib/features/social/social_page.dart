@@ -175,13 +175,12 @@ class _SocialPageState extends State<SocialPage>
     try {
       print('📝 Adding diary entry: $bevName');
 
-      final success = await _userService.addDiaryEntry({
-        'bevName': bevName,
-        'restaurant': restaurant.isNotEmpty ? restaurant : null,
-        'rating': rating,
-        'notes': notes?.isNotEmpty == true ? notes : null,
-        'image': image,
-      });
+      final success = await _userService.addDiaryEntry(
+        beverageName: "Espresso",
+        restaurant: "Restaurant Name",
+        notes: "Had amazing pasta",
+        rating: 5,
+      );
 
       if (success) {
         _showToast('Diary entry added');
