@@ -82,7 +82,7 @@ class _RestaurantDetailState extends State<RestaurantDetail>
 
     try {
       final results = await Future.wait([
-        _restaurantService.getRestaurant(widget.restaurantId), // Restaurant?
+        _restaurantService.getRestaurant(widget.restaurantId),
         _beverageService.getRestaurantBeverages(widget.restaurantId),
         _eventService.getRestaurantEvents(widget.restaurantId),
       ]);
@@ -93,7 +93,7 @@ class _RestaurantDetailState extends State<RestaurantDetail>
         restaurant = results[0] as Restaurant?;
         beverages = results[1] as List;
         events = results[2] as List;
-        expertRecommendations = results[3] as List;
+        expertRecommendations = []; // ✅ Initialize as empty or fetch separately
 
         _categorizeBeverages();
         filterAndSort();
