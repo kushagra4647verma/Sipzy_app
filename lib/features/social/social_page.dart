@@ -1109,177 +1109,218 @@ class _SocialPageState extends State<SocialPage>
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => Dialog(
           backgroundColor: Colors.transparent,
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: AppTheme.card,
-              borderRadius: BorderRadius.circular(16),
+          insetPadding: EdgeInsets.zero,
+          child: Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+              left: 16,
+              right: 16,
+              top: 40,
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                /// Header
-                Row(
+            child: Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.9,
+              ),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppTheme.card,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Add Diary Entry',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold),
+                    /// Header
+                    Row(
+                      children: [
+                        const Text(
+                          'Add Diary Entry',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          icon: const Icon(Icons.close, color: Colors.white54),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
                     ),
-                    const Spacer(),
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white54),
-                      onPressed: () => Navigator.pop(context),
-                    )
-                  ],
-                ),
 
-                const SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
-                /// Beverage name
-                _label('Beverage Name *'),
-                _inputField(
-                  controller: nameController,
-                  hint: 'What did you drink?',
-                ),
+                    /// Beverage name
+                    _label('Beverage Name *'),
+                    _inputField(
+                      controller: nameController,
+                      hint: 'What did you drink?',
+                    ),
 
-                const SizedBox(height: 12),
+                    const SizedBox(height: 12),
 
-                /// Restaurant
-                _label('Restaurant *'),
-                _inputField(
-                  controller: restaurantController,
-                  hint: 'Where did you drink it?',
-                ),
+                    /// Restaurant
+                    _label('Restaurant *'),
+                    _inputField(
+                      controller: restaurantController,
+                      hint: 'Where did you drink it?',
+                    ),
 
-                const SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
-                /// Rating
-                _label('Rating *'),
-                Row(
-                  children: List.generate(5, (i) {
-                    return IconButton(
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      icon: Icon(
-                        i < rating ? Icons.star : Icons.star_border,
-                        color: AppTheme.primary,
-                        size: 26,
-                      ),
-                      onPressed: () => setState(() => rating = i + 1),
-                    );
-                  }),
-                ),
-
-                const SizedBox(height: 16),
-
-                /// Notes
-                _label('Notes'),
-                _inputField(
-                  controller: notesController,
-                  hint: 'Your thoughts...',
-                  maxLines: 3,
-                ),
-
-                const SizedBox(height: 16),
-
-                /// Photo buttons
-                _label('Photo'),
-                Row(
-                  children: [
-                    _photoButton(
-                      icon: Icons.camera_alt,
-                      label: 'Camera',
-                      onTap: () async {
-                        final url = await _cameraService.pickAndUpload(
-                          context: context,
-                          bucket: 'diary-photos',
-                          folder: 'user-${_supabase.auth.currentUser?.id}',
+                    /// Rating
+                    _label('Rating *'),
+                    Row(
+                      children: List.generate(5, (i) {
+                        return IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          icon: Icon(
+                            i < rating ? Icons.star : Icons.star_border,
+                            color: AppTheme.primary,
+                            size: 26,
+                          ),
+                          onPressed: () => setState(() => rating = i + 1),
                         );
-                        if (url != null) {
-                          setState(() => uploadedImageUrl = url);
-                        }
-                      },
+                      }),
                     ),
-                    const SizedBox(width: 12),
-                    _photoButton(
-                      icon: Icons.upload,
-                      label: 'Upload',
-                      onTap: () async {
-                        final url = await _cameraService.pickAndUpload(
-                          context: context,
-                          bucket: 'diary-photos',
-                          folder: 'user-${_supabase.auth.currentUser?.id}',
-                        );
-                        if (url != null) {
-                          setState(() => uploadedImageUrl = url);
-                        }
-                      },
+
+                    const SizedBox(height: 16),
+
+                    /// Notes
+                    _label('Notes'),
+                    _inputField(
+                      controller: notesController,
+                      hint: 'Your thoughts...',
+                      maxLines: 3,
                     ),
-                  ],
-                ),
 
-                const SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
-                /// Share toggle
-                Row(
-                  children: [
-                    Switch(
-                      value: shareToFeed,
-                      activeThumbColor: AppTheme.primary,
-                      onChanged: (v) => setState(() => shareToFeed = v),
+                    /// Photo buttons
+                    _label('Photo'),
+                    Row(
+                      children: [
+                        _photoButton(
+                          icon: Icons.camera_alt,
+                          label: 'Camera',
+                          onTap: () async {
+                            final url = await _cameraService
+                                .takePhoto()
+                                .then((file) async {
+                              if (file == null) return null;
+                              final compressed =
+                                  await _cameraService.compressImage(file);
+                              if (compressed == null) return null;
+                              return _cameraService.uploadToSupabase(
+                                compressed,
+                                bucket: 'diary-photos',
+                                folder:
+                                    'user-${_supabase.auth.currentUser?.id}',
+                              );
+                            });
+
+                            if (url != null) {
+                              setState(() => uploadedImageUrl = url);
+                              _showToast('Photo uploaded successfully!');
+                            }
+                          },
+                        ),
+                        const SizedBox(width: 12),
+                        _photoButton(
+                          icon: Icons.photo_library,
+                          label: 'Gallery',
+                          onTap: () async {
+                            final url = await _cameraService
+                                .pickFromGallery()
+                                .then((file) async {
+                              if (file == null) return null;
+                              final compressed =
+                                  await _cameraService.compressImage(file);
+                              if (compressed == null) return null;
+                              return _cameraService.uploadToSupabase(
+                                compressed,
+                                bucket: 'diary-photos',
+                                folder:
+                                    'user-${_supabase.auth.currentUser?.id}',
+                              );
+                            });
+
+                            if (url != null) {
+                              setState(() => uploadedImageUrl = url);
+                              _showToast('Photo uploaded successfully!');
+                            }
+                          },
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'Share to Feed',
-                      style: TextStyle(color: Colors.white),
+
+                    const SizedBox(height: 16),
+
+                    /// Share toggle
+                    Row(
+                      children: [
+                        Switch(
+                          value: shareToFeed,
+                          activeThumbColor: AppTheme.primary,
+                          onChanged: (v) => setState(() => shareToFeed = v),
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Share to Feed',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
 
-                const SizedBox(height: 20),
+                    const SizedBox(height: 20),
 
-                /// CTA
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primary,
-                      foregroundColor: Colors.black,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                    /// CTA
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primary,
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: () {
+                          if (nameController.text.trim().isEmpty &&
+                              uploadedImageUrl == null) {
+                            _showToast(
+                              'Please add a drink name or photo',
+                              isError: true,
+                            );
+                            return;
+                          }
+
+                          Navigator.pop(context);
+                          addDiaryEntry(
+                            bevName: nameController.text.trim(),
+                            restaurant: restaurantController.text.trim(),
+                            rating: rating,
+                            notes: notesController.text.trim(),
+                            image: uploadedImageUrl,
+                            sharedToFeed: shareToFeed,
+                          );
+                        },
+                        child: const Text(
+                          'Add Entry',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                     ),
-                    onPressed: () {
-                      if (nameController.text.trim().isEmpty &&
-                          uploadedImageUrl == null) {
-                        _showToast('Please add a drink name or photo',
-                            isError: true);
-                        return;
-                      }
-
-                      Navigator.pop(context);
-                      addDiaryEntry(
-                        bevName: nameController.text.trim(),
-                        restaurant: restaurantController.text.trim(),
-                        rating: rating,
-                        notes: notesController.text.trim(),
-                        image: uploadedImageUrl,
-                        sharedToFeed: shareToFeed,
-                      );
-                    },
-                    child: const Text(
-                      'Add Entry',
-                      style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                  ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),

@@ -7,6 +7,43 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:path/path.dart' as path;
 
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:path_provider/path_provider.dart';
+
+/// Compress image to reduce file size
+Future<File?> compressImage(File file) async {
+  try {
+    final dir = await getTemporaryDirectory();
+    final targetPath = path.join(
+      dir.path,
+      'compressed_${path.basename(file.path)}',
+    );
+
+    print('🗜️ Compressing image: ${file.path}');
+    print('📦 Original size: ${await file.length()} bytes');
+
+    final result = await FlutterImageCompress.compressAndGetFile(
+      file.absolute.path,
+      targetPath,
+      quality: 70, // ✅ 70% quality
+      minWidth: 1024, // ✅ Max width
+      minHeight: 1024, // ✅ Max height
+    );
+
+    if (result == null) {
+      print('❌ Compression failed');
+      return null;
+    }
+
+    final compressed = File(result.path);
+    print('✅ Compressed size: ${await compressed.length()} bytes');
+    return compressed;
+  } catch (e) {
+    print('❌ Compression error: $e');
+    return null;
+  }
+}
+
 class CameraService {
   final _picker = ImagePicker();
   final _supabase = Supabase.instance.client;
@@ -140,7 +177,7 @@ class CameraService {
     }
   }
 
-  /// Upload photo to Supabase Storage
+  /// Upload photo to Supabase Storage with proper error handling
   Future<String?> uploadToSupabase(
     File file, {
     required String bucket,
@@ -149,20 +186,24 @@ class CameraService {
     try {
       print('📤 Uploading to Supabase: $bucket/$path');
 
-      // Ensure bucket exists (will not throw error if it already exists)
-      try {
-        await _supabase.storage.createBucket(bucket);
-        print('✅ Bucket created/verified: $bucket');
-      } catch (e) {
-        print('ℹ️ Bucket already exists or error: $e');
-      }
-
+      // ✅ Read file as bytes
       final bytes = await file.readAsBytes();
       final fileExt = file.path.split('.').last.toLowerCase();
-
-      // Map file extension to MIME type
       final mimeType = _getMimeType(fileExt);
 
+      print('📦 File size: ${bytes.length} bytes');
+      print('📦 MIME type: $mimeType');
+
+      // ✅ Ensure user is authenticated
+      final user = _supabase.auth.currentUser;
+      if (user == null) {
+        print('❌ No authenticated user');
+        return null;
+      }
+
+      print('✅ Authenticated user: ${user.id}');
+
+      // ✅ Upload with proper options
       await _supabase.storage.from(bucket).uploadBinary(
             path,
             bytes,
@@ -172,12 +213,18 @@ class CameraService {
             ),
           );
 
+      // ✅ Get public URL
       final url = _supabase.storage.from(bucket).getPublicUrl(path);
 
       print('✅ Upload successful: $url');
       return url;
-    } catch (e) {
+    } on StorageException catch (e) {
+      print('❌ Storage error: ${e.message} (${e.statusCode})');
+      print('Error details: ${e.error}');
+      return null;
+    } catch (e, stackTrace) {
       print('❌ Upload error: $e');
+      print('Stack trace: $stackTrace');
       return null;
     }
   }

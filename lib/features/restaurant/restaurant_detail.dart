@@ -93,7 +93,7 @@ class _RestaurantDetailState extends State<RestaurantDetail>
         restaurant = results[0] as Restaurant?;
         beverages = results[1] as List;
         events = results[2] as List;
-        expertRecommendations = []; // ✅ Initialize as empty or fetch separately
+        expertRecommendations = [];
 
         _categorizeBeverages();
         filterAndSort();
