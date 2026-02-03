@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/restaurant_service.dart';
 import '../../services/user_service.dart';
 import '../../services/location_service.dart';
@@ -31,7 +30,6 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  final _supabase = Supabase.instance.client;
   final _restaurantService = RestaurantService();
   final _userService = UserService();
 

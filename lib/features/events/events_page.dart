@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:shimmer/shimmer.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
 import '../../services/event_service.dart';
 
@@ -17,7 +16,6 @@ class EventsPage extends StatefulWidget {
 }
 
 class _EventsPageState extends State<EventsPage> {
-  final _supabase = Supabase.instance.client;
   final _eventService = EventService();
 
   List events = [];
@@ -29,25 +27,6 @@ class _EventsPageState extends State<EventsPage> {
   void initState() {
     super.initState();
     fetchEvents();
-  }
-
-  Future<Map<String, String>> _getHeaders() async {
-    final session = _supabase.auth.currentSession;
-    final user = _supabase.auth.currentUser;
-
-    final headers = {'Content-Type': 'application/json'};
-
-    if (session?.accessToken != null) {
-      headers['Authorization'] = 'Bearer ${session!.accessToken}';
-    }
-
-    if (user?.id != null) {
-      headers['x-user-id'] = user!.id;
-    } else if (widget.user['id'] != null) {
-      headers['x-user-id'] = widget.user['id'].toString();
-    }
-
-    return headers;
   }
 
   Future<void> fetchEvents() async {
@@ -62,8 +41,6 @@ class _EventsPageState extends State<EventsPage> {
       if (mounted) {
         setState(() {
           events = fetchedEvents;
-
-          // Apply search filter if needed
           if (searchQuery.isNotEmpty) {
             events = events.where((e) {
               final name = (e['name'] ?? '').toString().toLowerCase();

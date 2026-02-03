@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../../services/expert_service.dart';
 import '../../core/theme/app_theme.dart';
 
@@ -19,7 +19,6 @@ class ExpertProfileDetailPage extends StatefulWidget {
 }
 
 class _ExpertProfileDetailPageState extends State<ExpertProfileDetailPage> {
-  final _supabase = Supabase.instance.client;
   final _expertService = ExpertService();
 
   Map<String, dynamic>? expert;
@@ -34,34 +33,32 @@ class _ExpertProfileDetailPageState extends State<ExpertProfileDetailPage> {
   }
 
   Future<void> fetchExpertProfile() async {
-    Future<void> fetchExpertProfile() async {
+    setState(() {
+      loading = true;
+      hasError = false;
+    });
+
+    try {
+      final results = await Future.wait([
+        _expertService.getExpert(widget.expertId),
+        _expertService.getExpertRatings(widget.expertId, limit: 10),
+      ]);
+
+      if (!mounted) return;
+
       setState(() {
-        loading = true;
-        hasError = false;
+        expert = results[0] as Map<String, dynamic>?;
+        expertRatings = results[1] as List;
+        hasError = expert == null;
       });
-
-      try {
-        final results = await Future.wait([
-          _expertService.getExpert(widget.expertId),
-          _expertService.getExpertRatings(widget.expertId, limit: 10),
-        ]);
-
-        if (!mounted) return;
-
-        setState(() {
-          expert = results[0] as Map<String, dynamic>?;
-          expertRatings = results[1] as List;
-          hasError = expert == null;
-        });
-      } catch (e) {
-        print('❌ Fetch expert profile error: $e');
-        if (mounted) {
-          setState(() => hasError = true);
-        }
-      } finally {
-        if (mounted) {
-          setState(() => loading = false);
-        }
+    } catch (e) {
+      print('❌ Fetch expert profile error: $e');
+      if (mounted) {
+        setState(() => hasError = true);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => loading = false);
       }
     }
   }

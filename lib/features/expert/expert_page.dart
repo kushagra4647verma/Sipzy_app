@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/expert_service.dart';
 import '../expert/expert_profile_detail_page.dart';
 
@@ -15,7 +14,6 @@ class ExpertCornerPage extends StatefulWidget {
 }
 
 class _ExpertCornerPageState extends State<ExpertCornerPage> {
-  final _supabase = Supabase.instance.client;
   final _expertService = ExpertService();
 
   List experts = [];
@@ -28,25 +26,6 @@ class _ExpertCornerPageState extends State<ExpertCornerPage> {
   void initState() {
     super.initState();
     fetchExperts();
-  }
-
-  Future<Map<String, String>> _getHeaders() async {
-    final session = _supabase.auth.currentSession;
-    final user = _supabase.auth.currentUser;
-
-    final headers = {'Content-Type': 'application/json'};
-
-    if (session?.accessToken != null) {
-      headers['Authorization'] = 'Bearer ${session!.accessToken}';
-    }
-
-    if (user?.id != null) {
-      headers['x-user-id'] = user!.id;
-    } else if (widget.user['id'] != null) {
-      headers['x-user-id'] = widget.user['id'].toString();
-    }
-
-    return headers;
   }
 
   Future<void> fetchExperts() async {

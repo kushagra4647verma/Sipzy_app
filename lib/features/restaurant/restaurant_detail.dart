@@ -28,7 +28,6 @@ class RestaurantDetail extends StatefulWidget {
 
 class _RestaurantDetailState extends State<RestaurantDetail>
     with SingleTickerProviderStateMixin {
-  final _supabase = Supabase.instance.client;
   final _restaurantService = RestaurantService();
   final _beverageService = BeverageService();
   final _eventService = EventService();

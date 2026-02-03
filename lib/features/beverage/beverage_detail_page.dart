@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../shared/ui/share_modal.dart';
 import '../../core/theme/app_theme.dart';
 import '../../services/beverage_service.dart';
@@ -20,9 +19,7 @@ class BeverageDetailPage extends StatefulWidget {
 }
 
 class _BeverageDetailPageState extends State<BeverageDetailPage> {
-  final _supabase = Supabase.instance.client;
   final _beverageService = BeverageService();
-  final _cameraService = CameraService();
 
   Map<String, dynamic>? beverage;
   bool loading = true;
@@ -38,25 +35,6 @@ class _BeverageDetailPageState extends State<BeverageDetailPage> {
   void initState() {
     super.initState();
     fetchBeverage();
-  }
-
-  Future<Map<String, String>> _getHeaders() async {
-    final session = _supabase.auth.currentSession;
-    final user = _supabase.auth.currentUser;
-
-    final headers = {'Content-Type': 'application/json'};
-
-    if (session?.accessToken != null) {
-      headers['Authorization'] = 'Bearer ${session!.accessToken}';
-    }
-
-    if (user?.id != null) {
-      headers['x-user-id'] = user!.id;
-    } else if (widget.user['id'] != null) {
-      headers['x-user-id'] = widget.user['id'].toString();
-    }
-
-    return headers;
   }
 
   Future<void> fetchBeverage() async {
@@ -328,39 +306,6 @@ class _BeverageDetailPageState extends State<BeverageDetailPage> {
       default:
         return 'No notes available';
     }
-  }
-
-  Widget _buildBreakdownItem(String label, int value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(label,
-                  style: const TextStyle(
-                      color: AppTheme.textSecondary, fontSize: 14)),
-              Text('$value/5',
-                  style: const TextStyle(
-                      color: AppTheme.textPrimary,
-                      fontWeight: FontWeight.bold)),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: value / 5,
-              backgroundColor: AppTheme.border,
-              valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primary),
-              minHeight: 8,
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   void _showCustomerReviews() {

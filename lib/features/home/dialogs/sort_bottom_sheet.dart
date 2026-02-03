@@ -11,21 +11,6 @@ class SortBottomSheet extends StatelessWidget {
     required this.onSortSelected,
   });
 
-  String _getSortLabel(String value) {
-    switch (value) {
-      case 'rating':
-        return 'Highest Rating';
-      case 'distance':
-        return 'Nearest First';
-      case 'cost_low':
-        return 'Cost: Low to High';
-      case 'cost_high':
-        return 'Cost: High to Low';
-      default:
-        return 'Highest Rating';
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Padding(
