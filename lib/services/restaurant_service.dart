@@ -26,7 +26,7 @@ class RestaurantService {
     if (user?.id != null) {
       headers['x-user-id'] = user!.id;
     }
-    print("Token:" + session!.accessToken);
+    print("Token:${session!.accessToken}");
     return headers;
   }
 

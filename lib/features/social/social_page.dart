@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
@@ -8,6 +9,9 @@ import '../../services/camera_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/navigation/bottom_nav.dart';
 import '../../ui/toast/sipzy_toast.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
 
 class SocialPage extends StatefulWidget {
   final Map<String, dynamic> user;
@@ -24,6 +28,32 @@ class _SocialPageState extends State<SocialPage>
   final _supabase = Supabase.instance.client;
   final _userService = UserService();
   final _cameraService = CameraService();
+
+  Future<File?> _compressImage(File file) async {
+    try {
+      final dir = await getTemporaryDirectory();
+
+      // ✅ Always convert to JPEG format
+      final targetPath = path.join(
+        dir.path,
+        'compressed_${DateTime.now().millisecondsSinceEpoch}.jpg',
+      );
+
+      final result = await FlutterImageCompress.compressAndGetFile(
+        file.absolute.path,
+        targetPath,
+        quality: 70,
+        minWidth: 1024,
+        minHeight: 1024,
+        format: CompressFormat.jpeg,
+      );
+
+      return result != null ? File(result.path) : null;
+    } catch (e) {
+      print('❌ Compression error: $e');
+      return null;
+    }
+  }
 
   late TabController _tabController;
 
@@ -1206,21 +1236,26 @@ class _SocialPageState extends State<SocialPage>
                         _photoButton(
                           icon: Icons.camera_alt,
                           label: 'Camera',
+                          // Camera button
                           onTap: () async {
-                            final url = await _cameraService
-                                .takePhoto()
-                                .then((file) async {
-                              if (file == null) return null;
-                              final compressed =
-                                  await _cameraService.compressImage(file);
-                              if (compressed == null) return null;
-                              return _cameraService.uploadToSupabase(
-                                compressed,
-                                bucket: 'diary-photos',
-                                folder:
-                                    'user-${_supabase.auth.currentUser?.id}',
-                              );
-                            });
+                            final file = await _cameraService.takePhoto();
+                            if (file == null) return;
+
+                            final compressed = await _compressImage(file);
+                            if (compressed == null) {
+                              _showToast('Failed to compress image',
+                                  isError: true);
+                              return;
+                            }
+
+                            final timestamp =
+                                DateTime.now().millisecondsSinceEpoch;
+                            final url = await _cameraService.uploadToSupabase(
+                              compressed,
+                              bucket: 'diary-photos',
+                              path:
+                                  'user-${_supabase.auth.currentUser?.id}/$timestamp.jpg', // ✅ Always .jpg
+                            );
 
                             if (url != null) {
                               setState(() => uploadedImageUrl = url);
@@ -1233,20 +1268,24 @@ class _SocialPageState extends State<SocialPage>
                           icon: Icons.photo_library,
                           label: 'Gallery',
                           onTap: () async {
-                            final url = await _cameraService
-                                .pickFromGallery()
-                                .then((file) async {
-                              if (file == null) return null;
-                              final compressed =
-                                  await _cameraService.compressImage(file);
-                              if (compressed == null) return null;
-                              return _cameraService.uploadToSupabase(
-                                compressed,
-                                bucket: 'diary-photos',
-                                folder:
-                                    'user-${_supabase.auth.currentUser?.id}',
-                              );
-                            });
+                            final file = await _cameraService.pickFromGallery();
+                            if (file == null) return;
+
+                            final compressed = await _compressImage(file);
+                            if (compressed == null) {
+                              _showToast('Failed to compress image',
+                                  isError: true);
+                              return;
+                            }
+
+                            final timestamp =
+                                DateTime.now().millisecondsSinceEpoch;
+                            final url = await _cameraService.uploadToSupabase(
+                              compressed,
+                              bucket: 'diary-photos',
+                              path:
+                                  'user-${_supabase.auth.currentUser?.id}/$timestamp.jpg',
+                            );
 
                             if (url != null) {
                               setState(() => uploadedImageUrl = url);
