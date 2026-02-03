@@ -185,111 +185,300 @@ class _BeverageDetailPageState extends State<BeverageDetailPage> {
     );
   }
 
-  void _showExpertBreakdown() {
+  void _showExpertRatings() async {
+    // Fetch expert ratings from API
+    final ratingsData = await _beverageService.getExpertRatings(
+      widget.beverageId,
+      page: 1,
+      limit: 20,
+    );
+
+    if (!mounted) return;
+
+    // Extract ratings array from response
+    final expertRatings = ratingsData?['ratings'] as List? ?? [];
+    final pagination =
+        ratingsData?['pagination'] as Map<String, dynamic>? ?? {};
+
+    if (expertRatings.isEmpty) {
+      _toast('No expert ratings yet');
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (context) => Dialog(
         backgroundColor: AppTheme.card,
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Expert Rating Breakdown',
-                      style: TextStyle(
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [
+                              AppTheme.secondary,
+                              AppTheme.secondaryLight
+                            ],
+                          ),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.verified,
+                          color: Colors.white,
+                          size: 16,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Expert Ratings (${pagination['total'] ?? expertRatings.length})',
+                        style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: Colors.white)),
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
                   IconButton(
                     onPressed: () => Navigator.pop(context),
                     icon: const Icon(Icons.close, color: AppTheme.textTertiary),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
-              const Text('Tap each category to see details',
-                  style:
-                      TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
-              const SizedBox(height: 24),
-              _buildExpandableBreakdownItem('Presentation', 4),
-              _buildExpandableBreakdownItem('Taste', 3),
-              _buildExpandableBreakdownItem('Ingredients', 3),
-              _buildExpandableBreakdownItem('Accuracy', 3),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+            ),
+            SizedBox(
+              height: 500,
+              child: ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: expertRatings.length,
+                itemBuilder: (context, index) {
+                  final rating = expertRatings[index];
+                  final expert =
+                      rating['expert'] as Map<String, dynamic>? ?? {};
 
-  Widget _buildExpandableBreakdownItem(String label, int value) {
-    return StatefulBuilder(
-      builder: (context, setState) {
-        bool expanded = false;
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              InkWell(
-                onTap: () => setState(() => expanded = !expanded),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
+                  // Calculate average rating
+                  final avgRating = ((rating['presentation_rating'] ?? 0) +
+                          (rating['taste_rating'] ?? 0) +
+                          (rating['ingredients_rating'] ?? 0) +
+                          (rating['accuracy_rating'] ?? 0)) /
+                      4;
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppTheme.glassLight,
+                      borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+                      border: Border.all(
+                        color: AppTheme.secondary.withOpacity(0.3),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(label,
-                            style: const TextStyle(
-                                color: AppTheme.textSecondary, fontSize: 14)),
-                        const SizedBox(width: 8),
-                        Icon(
-                          expanded ? Icons.expand_less : Icons.expand_more,
-                          size: 16,
-                          color: AppTheme.textTertiary,
+                        // Expert Header
+                        Row(
+                          children: [
+                            Stack(
+                              children: [
+                                CircleAvatar(
+                                  radius: 24,
+                                  backgroundColor: AppTheme.secondary,
+                                  backgroundImage: expert['profile_photo'] !=
+                                          null
+                                      ? NetworkImage(expert['profile_photo'])
+                                      : null,
+                                  child: expert['profile_photo'] == null
+                                      ? Text(
+                                          (expert['name'] ?? 'E')[0]
+                                              .toUpperCase(),
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        )
+                                      : null,
+                                ),
+                                Positioned(
+                                  bottom: 0,
+                                  right: 0,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(3),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.secondary,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: AppTheme.card,
+                                        width: 2,
+                                      ),
+                                    ),
+                                    child: const Icon(
+                                      Icons.verified,
+                                      color: Colors.white,
+                                      size: 12,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    expert['name'] ?? 'Expert',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  // Expertise tags
+                                  if (expert['expertise_tags'] != null)
+                                    Wrap(
+                                      spacing: 4,
+                                      runSpacing: 4,
+                                      children: (expert['expertise_tags']
+                                              as List)
+                                          .take(2)
+                                          .map((tag) => Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                  horizontal: 8,
+                                                  vertical: 2,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: AppTheme.secondary
+                                                      .withOpacity(0.2),
+                                                  borderRadius:
+                                                      BorderRadius.circular(12),
+                                                ),
+                                                child: Text(
+                                                  tag.toString(),
+                                                  style: const TextStyle(
+                                                    color: AppTheme.secondary,
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ))
+                                          .toList(),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            // Average Rating
+                            Column(
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.star,
+                                      color: AppTheme.primary,
+                                      size: 18,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      avgRating.toStringAsFixed(1),
+                                      style: const TextStyle(
+                                        color: AppTheme.primary,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Text(
+                                  _formatDate(rating['created_at'] ?? ''),
+                                  style: const TextStyle(
+                                    color: AppTheme.textTertiary,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
+
+                        const SizedBox(height: 16),
+                        const Divider(color: AppTheme.border, height: 1),
+                        const SizedBox(height: 16),
+
+                        // Rating Breakdown
+                        _buildExpertRatingRow(
+                          'Presentation',
+                          rating['presentation_rating'] ?? 0,
+                        ),
+                        const SizedBox(height: 8),
+                        _buildExpertRatingRow(
+                          'Taste',
+                          rating['taste_rating'] ?? 0,
+                        ),
+                        const SizedBox(height: 8),
+                        _buildExpertRatingRow(
+                          'Ingredients',
+                          rating['ingredients_rating'] ?? 0,
+                        ),
+                        const SizedBox(height: 8),
+                        _buildExpertRatingRow(
+                          'Accuracy',
+                          rating['accuracy_rating'] ?? 0,
+                        ),
+
+                        // Expert Notes
+                        if (rating['notes'] != null &&
+                            rating['notes'].toString().isNotEmpty) ...[
+                          const SizedBox(height: 16),
+                          const Divider(color: AppTheme.border, height: 1),
+                          const SizedBox(height: 12),
+                          const Row(
+                            children: [
+                              Icon(
+                                Icons.notes,
+                                color: AppTheme.textSecondary,
+                                size: 16,
+                              ),
+                              SizedBox(width: 6),
+                              Text(
+                                'Expert Notes',
+                                style: TextStyle(
+                                  color: AppTheme.textSecondary,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            rating['notes'].toString(),
+                            style: const TextStyle(
+                              color: AppTheme.textPrimary,
+                              fontSize: 13,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
-                    Text('$value/5',
-                        style: const TextStyle(
-                            color: AppTheme.textPrimary,
-                            fontWeight: FontWeight.bold)),
-                  ],
-                ),
+                  );
+                },
               ),
-              const SizedBox(height: 8),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: value / 5,
-                  backgroundColor: AppTheme.border,
-                  valueColor:
-                      const AlwaysStoppedAnimation<Color>(AppTheme.primary),
-                  minHeight: 8,
-                ),
-              ),
-              if (expanded) ...[
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.glassLight,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    'Expert notes: ${_getExpertNotes(label)}',
-                    style: const TextStyle(
-                        color: AppTheme.textSecondary, fontSize: 12),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        );
-      },
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -309,14 +498,19 @@ class _BeverageDetailPageState extends State<BeverageDetailPage> {
   }
 
   void _showCustomerReviews() async {
-    // Fetch actual reviews from API
-    final reviews =
-        await _beverageService.getBeverageRatings(widget.beverageId);
+    // Fetch actual reviews from API with pagination
+    final reviewsData = await _beverageService.getBeverageRatings(
+      widget.beverageId,
+      page: 1,
+      limit: 20,
+    );
 
     if (!mounted) return;
 
-    // Extract ratings array from response
-    final ratingsData = reviews?['ratings'] as List? ?? [];
+    // ✅ FIXED: Extract ratings array from new response structure
+    final ratingsData = reviewsData?['ratings'] as List? ?? [];
+    final pagination =
+        reviewsData?['pagination'] as Map<String, dynamic>? ?? {};
 
     if (ratingsData.isEmpty) {
       _toast('No customer reviews yet');
@@ -335,11 +529,14 @@ class _BeverageDetailPageState extends State<BeverageDetailPage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Customer Reviews (${ratingsData.length})',
-                      style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white)),
+                  Text(
+                    'Customer Reviews (${pagination['total'] ?? ratingsData.length})',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
                   IconButton(
                     onPressed: () => Navigator.pop(context),
                     icon: const Icon(Icons.close, color: AppTheme.textTertiary),
@@ -360,6 +557,7 @@ class _BeverageDetailPageState extends State<BeverageDetailPage> {
                     decoration: BoxDecoration(
                       color: AppTheme.glassLight,
                       borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                      border: Border.all(color: AppTheme.border),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -369,38 +567,48 @@ class _BeverageDetailPageState extends State<BeverageDetailPage> {
                             CircleAvatar(
                               backgroundColor: AppTheme.secondary,
                               child: Text(
-                                  (review['user']?['name'] ?? 'U')[0]
-                                      .toUpperCase(),
-                                  style: const TextStyle(color: Colors.white)),
+                                (review['user']?['name'] ?? 'U')[0]
+                                    .toUpperCase(),
+                                style: const TextStyle(color: Colors.white),
+                              ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(review['user']?['name'] ?? 'Anonymous',
-                                      style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold)),
                                   Text(
-                                      _formatDate(review['createdAt'] ??
-                                          review['created_at'] ??
-                                          ''),
-                                      style: const TextStyle(
-                                          color: AppTheme.textTertiary,
-                                          fontSize: 12)),
+                                    review['user']?['name'] ?? 'Anonymous',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  Text(
+                                    _formatDate(review['created_at'] ?? ''),
+                                    style: const TextStyle(
+                                      color: AppTheme.textTertiary,
+                                      fontSize: 12,
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
                             Row(
                               children: [
-                                const Icon(Icons.star,
-                                    color: AppTheme.primary, size: 16),
+                                const Icon(
+                                  Icons.star,
+                                  color: AppTheme.primary,
+                                  size: 16,
+                                ),
                                 const SizedBox(width: 4),
-                                Text('${review['rating'] ?? 0}',
-                                    style: const TextStyle(
-                                        color: AppTheme.primary,
-                                        fontWeight: FontWeight.bold)),
+                                Text(
+                                  '${review['rating'] ?? 0}',
+                                  style: const TextStyle(
+                                    color: AppTheme.primary,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                               ],
                             ),
                           ],
@@ -408,9 +616,11 @@ class _BeverageDetailPageState extends State<BeverageDetailPage> {
                         if (review['comments'] != null &&
                             review['comments'].toString().isNotEmpty) ...[
                           const SizedBox(height: 12),
-                          Text(review['comments'].toString(),
-                              style: const TextStyle(
-                                  color: AppTheme.textSecondary)),
+                          Text(
+                            review['comments'].toString(),
+                            style:
+                                const TextStyle(color: AppTheme.textSecondary),
+                          ),
                         ],
                       ],
                     ),
@@ -698,7 +908,7 @@ class _BeverageDetailPageState extends State<BeverageDetailPage> {
           if (label == 'Customer Rating') {
             _showCustomerReviews();
           } else if (label == 'Expert Rating') {
-            _showExpertBreakdown();
+            _showExpertRatings();
           }
         }
       },
@@ -784,6 +994,46 @@ class _BeverageDetailPageState extends State<BeverageDetailPage> {
           ],
         ),
       ),
+    );
+  }
+
+// Helper method for rating breakdown rows
+  Widget _buildExpertRatingRow(String label, dynamic rating) {
+    final ratingValue = (rating is num ? rating.toDouble() : 0.0);
+
+    return Row(
+      children: [
+        SizedBox(
+          width: 100,
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: AppTheme.textSecondary,
+              fontSize: 13,
+            ),
+          ),
+        ),
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: ratingValue / 5,
+              backgroundColor: AppTheme.border,
+              valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primary),
+              minHeight: 6,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Text(
+          ratingValue.toStringAsFixed(1),
+          style: const TextStyle(
+            color: AppTheme.primary,
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+          ),
+        ),
+      ],
     );
   }
 

@@ -111,14 +111,18 @@ class BeverageService {
   }
 
   // ============ RATINGS ============
-
-  /// GET /api/beverages/:beverageId/ratings
-  Future<Map<String, dynamic>?> getBeverageRatings(String beverageId) async {
+  /// GET /api/beverages/:beverageId/user-ratings
+  Future<Map<String, dynamic>?> getBeverageRatings(
+    String beverageId, {
+    int page = 1,
+    int limit = 20,
+  }) async {
     try {
       final headers = await _getHeaders();
       final response = await http
           .get(
-            Uri.parse('$baseUrl/beverages/$beverageId/ratings'),
+            Uri.parse(
+                '$baseUrl/beverages/$beverageId/user-ratings?page=$page&limit=$limit'),
             headers: headers,
           )
           .timeout(EnvConfig.requestTimeout);
@@ -133,6 +137,28 @@ class BeverageService {
       return null;
     }
   }
+
+  /// GET /api/beverages/:beverageId/ratings
+  // Future<Map<String, dynamic>?> getBeverageRatings(String beverageId) async {
+  //   try {
+  //     final headers = await _getHeaders();
+  //     final response = await http
+  //         .get(
+  //           Uri.parse('$baseUrl/beverages/$beverageId/ratings'),
+  //           headers: headers,
+  //         )
+  //         .timeout(EnvConfig.requestTimeout);
+
+  //     if (response.statusCode == 200) {
+  //       final data = jsonDecode(response.body);
+  //       return data['success'] == true ? data['data'] : data;
+  //     }
+  //     return null;
+  //   } catch (e) {
+  //     print('❌ Get beverage ratings error: $e');
+  //     return null;
+  //   }
+  // }
 
   /// POST /api/beverages/:beverageId/ratings
   /// ✅ FIXED: Changed from /rate to /ratings
@@ -218,14 +244,18 @@ class BeverageService {
 
   // ============ EXPERT RATINGS ============
 
-  /// GET /api/beverages/:beverageId/expert-rating
-  /// ✅ NEW: Previously missing endpoint
-  Future<Map<String, dynamic>?> getExpertRating(String beverageId) async {
+  /// GET /api/beverages/:beverageId/expert-ratings
+  Future<Map<String, dynamic>?> getExpertRatings(
+    String beverageId, {
+    int page = 1,
+    int limit = 20,
+  }) async {
     try {
       final headers = await _getHeaders();
       final response = await http
           .get(
-            Uri.parse('$baseUrl/beverages/$beverageId/expert-rating'),
+            Uri.parse(
+                '$baseUrl/beverages/$beverageId/expert-ratings?page=$page&limit=$limit'),
             headers: headers,
           )
           .timeout(EnvConfig.requestTimeout);
@@ -236,7 +266,7 @@ class BeverageService {
       }
       return null;
     } catch (e) {
-      print('❌ Get expert rating error: $e');
+      print('❌ Get expert ratings error: $e');
       return null;
     }
   }
