@@ -29,7 +29,8 @@ class Restaurant {
   final String? coverImage;
   final List<String> gallery;
   final List<String> foodMenuPics;
-
+  final double? distance;
+  final double? sipzyRating;
   final List<dynamic> openingHours;
 
   final String? instaLink;
@@ -75,12 +76,13 @@ class Restaurant {
     this.websiteUrl2,
     this.googleMapsLink,
     this.location,
+    this.distance,
+    this.sipzyRating,
     this.createdAt,
     this.updatedAt,
   });
 
   factory Restaurant.fromJson(Map<String, dynamic> json) {
-    // ✅ CRITICAL FIX: Safe list parser handles null, empty, and JSON strings
     List<String> parseStringList(dynamic value, String fieldName) {
       if (value == null) return [];
 
@@ -93,7 +95,7 @@ class Restaurant {
         }
         if (value is String) {
           if (value.isEmpty) return [];
-          // Try to parse as JSON array
+
           try {
             final decoded = jsonDecode(value);
             if (decoded is List) {
@@ -114,7 +116,6 @@ class Restaurant {
       return [];
     }
 
-    // ✅ CRITICAL FIX: Handle BOTH opening_hours formats (String JSON vs direct Array)
     List<dynamic> parseOpeningHours(dynamic value) {
       if (value == null) return [];
 
@@ -221,7 +222,17 @@ class Restaurant {
             json['googleMapsLink']?.toString(),
 
         location: json['location']?.toString(),
+        distance: json['distance'] != null
+            ? (json['distance'] is num
+                ? (json['distance'] as num).toDouble()
+                : double.tryParse(json['distance'].toString()) ?? 0)
+            : null,
 
+        sipzyRating: json['sipzy_rating'] != null
+            ? (json['sipzy_rating'] is num
+                ? (json['sipzy_rating'] as num).toDouble()
+                : double.tryParse(json['sipzy_rating'].toString()) ?? 0)
+            : null,
         createdAt: json['created_at'] != null || json['createdAt'] != null
             ? DateTime.tryParse(
                 (json['created_at'] ?? json['createdAt']).toString())
@@ -305,8 +316,8 @@ class Restaurant {
       'updated_at': updatedAt?.toIso8601String(),
       'cost_for_two': priceRange * 500, // Estimate based on price range
       'costForTwo': priceRange * 500,
-      'distance': 0, // This should come from API or calculation
-      'sipzy_rating': 4.5, // This should come from API
+      'distance': distance ?? 0, // Use actual distance from calculation
+      'sipzy_rating': sipzyRating ?? 4.5, // This should come from API
     };
   }
 

@@ -188,6 +188,7 @@ class RestaurantService {
   }
 
   /// GET /api/restaurants/:restaurantId
+  /// GET /api/restaurants/:restaurantId
   Future<Restaurant?> getRestaurant(String restaurantId) async {
     try {
       final headers = await _getHeaders();
@@ -203,13 +204,18 @@ class RestaurantService {
         if (body['success'] == true) {
           final restaurantData = body['data'] as Map<String, dynamic>;
 
+          // Get user's current position
           final position = await _locationService.getCurrentLocation();
 
+          // Calculate distance using the same method as getRestaurants
           _calculateDistanceForRestaurant(
             restaurantData,
             position?.latitude,
             position?.longitude,
           );
+
+          print(
+              '✅ Restaurant fetched with distance: ${restaurantData['distance']}');
 
           return Restaurant.fromJson(restaurantData);
         }
@@ -220,7 +226,6 @@ class RestaurantService {
       return null;
     }
   }
-
   // ============ LOCATION-BASED QUERIES ============
 
   /// GET /api/restaurants/by-city/:city

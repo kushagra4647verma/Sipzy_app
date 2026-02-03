@@ -308,22 +308,20 @@ class _BeverageDetailPageState extends State<BeverageDetailPage> {
     }
   }
 
-  void _showCustomerReviews() {
-    final reviews = [
-      {
-        'user': 'Test User',
-        'rating': 4.5,
-        'comment': 'Great taste!',
-        'date': '12/12/2025'
-      },
-      {
-        'user': 'Test User',
-        'rating': 4.5,
-        'comment': 'Great taste!',
-        'date': '12/12/2025'
-      },
-      {'user': 'Test', 'rating': 4.0, 'comment': 'Test', 'date': '12/5/2025'},
-    ];
+  void _showCustomerReviews() async {
+    // Fetch actual reviews from API
+    final reviews =
+        await _beverageService.getBeverageRatings(widget.beverageId);
+
+    if (!mounted) return;
+
+    // Extract ratings array from response
+    final ratingsData = reviews?['ratings'] as List? ?? [];
+
+    if (ratingsData.isEmpty) {
+      _toast('No customer reviews yet');
+      return;
+    }
 
     showDialog(
       context: context,
@@ -337,7 +335,7 @@ class _BeverageDetailPageState extends State<BeverageDetailPage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Customer Reviews (${reviews.length})',
+                  Text('Customer Reviews (${ratingsData.length})',
                       style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -353,9 +351,9 @@ class _BeverageDetailPageState extends State<BeverageDetailPage> {
               height: 400,
               child: ListView.builder(
                 padding: const EdgeInsets.all(16),
-                itemCount: reviews.length,
+                itemCount: ratingsData.length,
                 itemBuilder: (context, index) {
-                  final review = reviews[index];
+                  final review = ratingsData[index];
                   return Container(
                     margin: const EdgeInsets.only(bottom: 12),
                     padding: const EdgeInsets.all(16),
@@ -370,7 +368,9 @@ class _BeverageDetailPageState extends State<BeverageDetailPage> {
                           children: [
                             CircleAvatar(
                               backgroundColor: AppTheme.secondary,
-                              child: Text(review['user'].toString()[0],
+                              child: Text(
+                                  (review['user']?['name'] ?? 'U')[0]
+                                      .toUpperCase(),
                                   style: const TextStyle(color: Colors.white)),
                             ),
                             const SizedBox(width: 12),
@@ -378,11 +378,14 @@ class _BeverageDetailPageState extends State<BeverageDetailPage> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(review['user'].toString(),
+                                  Text(review['user']?['name'] ?? 'Anonymous',
                                       style: const TextStyle(
                                           color: Colors.white,
                                           fontWeight: FontWeight.bold)),
-                                  Text(review['date'].toString(),
+                                  Text(
+                                      _formatDate(review['createdAt'] ??
+                                          review['created_at'] ??
+                                          ''),
                                       style: const TextStyle(
                                           color: AppTheme.textTertiary,
                                           fontSize: 12)),
@@ -394,7 +397,7 @@ class _BeverageDetailPageState extends State<BeverageDetailPage> {
                                 const Icon(Icons.star,
                                     color: AppTheme.primary, size: 16),
                                 const SizedBox(width: 4),
-                                Text('${review['rating']}',
+                                Text('${review['rating'] ?? 0}',
                                     style: const TextStyle(
                                         color: AppTheme.primary,
                                         fontWeight: FontWeight.bold)),
@@ -402,10 +405,13 @@ class _BeverageDetailPageState extends State<BeverageDetailPage> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 12),
-                        Text(review['comment'].toString(),
-                            style:
-                                const TextStyle(color: AppTheme.textSecondary)),
+                        if (review['comments'] != null &&
+                            review['comments'].toString().isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          Text(review['comments'].toString(),
+                              style: const TextStyle(
+                                  color: AppTheme.textSecondary)),
+                        ],
                       ],
                     ),
                   );
@@ -416,6 +422,16 @@ class _BeverageDetailPageState extends State<BeverageDetailPage> {
         ),
       ),
     );
+  }
+
+  String _formatDate(String? dateStr) {
+    if (dateStr == null || dateStr.isEmpty) return 'Recent';
+    try {
+      final date = DateTime.parse(dateStr);
+      return '${date.day}/${date.month}/${date.year}';
+    } catch (e) {
+      return 'Recent';
+    }
   }
 
   void _toast(String msg, {bool isError = false}) {
