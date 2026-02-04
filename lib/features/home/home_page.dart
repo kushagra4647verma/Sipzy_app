@@ -225,6 +225,12 @@ class _HomePageState extends State<HomePage> {
 
       if (success) {
         await fetchBookmarks();
+        setState(() {
+          restaurants = List.from(restaurants);
+          featuredRestaurants = List.from(featuredRestaurants);
+          trendingRestaurants = List.from(trendingRestaurants);
+        });
+
         if (mounted) {
           _showToast('Bookmark updated');
         }

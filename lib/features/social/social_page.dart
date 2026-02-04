@@ -2182,6 +2182,12 @@ class _SocialPageState extends State<SocialPage>
         bookmark['restaurant_id'];
     final bookmarkId = bookmark['id'];
 
+    final image = bookmark['logoImage'] ??
+        bookmark['logo_image'] ??
+        bookmark['coverImage'] ??
+        bookmark['cover_image'] ??
+        bookmark['image'];
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -2193,9 +2199,8 @@ class _SocialPageState extends State<SocialPage>
         contentPadding: const EdgeInsets.all(16),
         leading: ClipRRect(
           borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-          child: bookmark['logoImage'] != null &&
-                  bookmark['logoImage'].toString().isNotEmpty
-              ? Image.network(bookmark['logoImage'],
+          child: image != null && image.toString().isNotEmpty
+              ? Image.network(image,
                   width: 60,
                   height: 60,
                   fit: BoxFit.cover,

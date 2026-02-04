@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/restaurant_service.dart';
 import '../../services/beverage_service.dart';
+import '../../services/camera_service.dart';
 import '../../services/event_service.dart';
 import '../../services/user_service.dart';
 import '../../core/theme/app_theme.dart';
@@ -32,8 +33,9 @@ class _RestaurantDetailState extends State<RestaurantDetail>
   final _beverageService = BeverageService();
   final _eventService = EventService();
   final _userService = UserService();
-  Restaurant? restaurant;
 
+  Restaurant? restaurant;
+  List<String> _userUploadedPhotos = [];
   List beverages = [];
   List filteredBeverages = [];
   List topSipzyBeverages = [];
@@ -73,6 +75,68 @@ class _RestaurantDetailState extends State<RestaurantDetail>
     super.dispose();
   }
 
+  Future<List<String>> _fetchUserUploadedBeveragePhotos() async {
+    try {
+      final supabase = Supabase.instance.client;
+
+      // List all files in the user-uploads folder for this restaurant's beverages
+      final result = await supabase.storage
+          .from('beverage-photos')
+          .list(path: 'user-uploads');
+
+      if (result.isEmpty) return [];
+
+      // Get beverage IDs from current restaurant
+      final beverageIds = beverages.map((b) => b['id'].toString()).toSet();
+
+      // Filter photos that belong to this restaurant's beverages
+      final photos = <String>[];
+      for (final file in result) {
+        final fileName = file.name;
+
+        // Check if this photo belongs to any beverage in this restaurant
+        // Format: {beverageId}_{timestamp}.jpg
+        final beverageId = fileName.split('_').first;
+
+        if (beverageIds.contains(beverageId)) {
+          final photoUrl = supabase.storage
+              .from('beverage-photos')
+              .getPublicUrl('user-uploads/$fileName');
+          photos.add(photoUrl);
+        }
+      }
+
+      print('📸 Found ${photos.length} user-uploaded beverage photos');
+      return photos;
+    } catch (e) {
+      print('❌ Error fetching user-uploaded photos: $e');
+      return [];
+    }
+  }
+
+  void _showPhotoUpload(Map bev) async {
+    final cameraService = CameraService();
+
+    final photoUrl = await cameraService.pickAndUpload(
+      context: context,
+      bucket: 'beverage-photos',
+      folder: 'user-uploads',
+      filename: '${bev['id']}_${DateTime.now().millisecondsSinceEpoch}',
+    );
+
+    if (photoUrl != null) {
+      _toast('Photo uploaded successfully!');
+
+      // ✅ Refresh to fetch the new photo
+      final userPhotos = await _fetchUserUploadedBeveragePhotos();
+      if (mounted) {
+        setState(() {
+          _userUploadedPhotos = userPhotos;
+        });
+      }
+    }
+  }
+
   Future<void> fetchRestaurant() async {
     setState(() {
       loading = true;
@@ -99,6 +163,16 @@ class _RestaurantDetailState extends State<RestaurantDetail>
 
         hasError = restaurant == null;
       });
+
+      // ✅ Fetch user-uploaded beverage photos after beverages are loaded
+      if (mounted && beverages.isNotEmpty) {
+        final userPhotos = await _fetchUserUploadedBeveragePhotos();
+        if (mounted) {
+          setState(() {
+            _userUploadedPhotos = userPhotos; // Add this field
+          });
+        }
+      }
     } catch (e) {
       print('❌ Fetch restaurant error: $e');
       if (mounted) {
@@ -277,7 +351,8 @@ class _RestaurantDetailState extends State<RestaurantDetail>
                 }
                 final uri = Uri.parse(url);
                 if (await canLaunchUrl(uri)) {
-                  await launchUrl(uri);
+                  await launchUrl(uri,
+                      mode: LaunchMode.externalApplication); // ✅ Added mode
                 }
               },
             ),
@@ -300,42 +375,69 @@ class _RestaurantDetailState extends State<RestaurantDetail>
                 _buildSocialButton(
                   Icons.camera_alt,
                   Colors.purple,
-                  () async {
-                    final uri = Uri.parse(restaurant!.instaLink!);
-                    if (await canLaunchUrl(uri)) {
-                      await launchUrl(uri);
-                    }
-                  },
+                  () =>
+                      _launchSocialUrl(restaurant!.instaLink!), // ✅ Use helper
                 ),
               if (restaurant!.facebookLink != null &&
                   restaurant!.facebookLink!.isNotEmpty)
                 _buildSocialButton(
                   Icons.facebook,
                   Colors.blue,
-                  () async {
-                    final uri = Uri.parse(restaurant!.facebookLink!);
-                    if (await canLaunchUrl(uri)) {
-                      await launchUrl(uri);
-                    }
-                  },
+                  () => _launchSocialUrl(
+                      restaurant!.facebookLink!), // ✅ Use helper
                 ),
               if (restaurant!.twitterLink != null &&
                   restaurant!.twitterLink!.isNotEmpty)
                 _buildSocialButton(
-                  Icons.flutter_dash, // Or use a Twitter icon
+                  Icons.flutter_dash,
                   Colors.lightBlue,
-                  () async {
-                    final uri = Uri.parse(restaurant!.twitterLink!);
-                    if (await canLaunchUrl(uri)) {
-                      await launchUrl(uri);
-                    }
-                  },
+                  () => _launchSocialUrl(
+                      restaurant!.twitterLink!), // ✅ Use helper
                 ),
             ],
           ),
         ],
       ),
     );
+  }
+
+// ✅ ADD THIS NEW HELPER METHOD
+  Future<void> _launchSocialUrl(String url) async {
+    try {
+      // Clean and validate the URL
+      String cleanUrl = url.trim();
+
+      // If it's just a username or handle, skip it
+      if (cleanUrl.isEmpty || cleanUrl.length < 5) {
+        _toast('Invalid social media link', isError: true);
+        return;
+      }
+
+      // Add https:// if missing
+      if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
+        cleanUrl = 'https://$cleanUrl';
+      }
+
+      // Try to parse the URL
+      final uri = Uri.tryParse(cleanUrl);
+      if (uri == null) {
+        _toast('Invalid URL format', isError: true);
+        return;
+      }
+
+      // Check if we can launch it
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication, // ✅ Force external browser
+        );
+      } else {
+        _toast('Cannot open this link', isError: true);
+      }
+    } catch (e) {
+      print('❌ Error launching URL: $e');
+      _toast('Failed to open link', isError: true);
+    }
   }
 
   Widget _buildContactItem(IconData icon, String text, VoidCallback onTap) {
@@ -966,21 +1068,49 @@ class _RestaurantDetailState extends State<RestaurantDetail>
   }
 
   Widget _buildPhotoGallerySection() {
-    final photos = restaurant!.gallery; // Changed from restaurant!['photos']
-    if (photos.isEmpty) return const SizedBox.shrink();
+    // ✅ FIXED: Only show restaurant gallery + user-uploaded beverage photos
+    final restaurantPhotos = restaurant!.gallery;
+    final allPhotos = [...restaurantPhotos, ..._userUploadedPhotos];
+
+    if (allPhotos.isEmpty) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.all(16),
-          child: Text(
-            'Photo Gallery',
-            style: TextStyle(
-              color: AppTheme.textPrimary,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Photo Gallery',
+                style: TextStyle(
+                  color: AppTheme.textPrimary,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              // ✅ Show count of user-uploaded beverage photos
+              if (_userUploadedPhotos.isNotEmpty)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                    border:
+                        Border.all(color: AppTheme.primary.withOpacity(0.5)),
+                  ),
+                  child: Text(
+                    '+${_userUploadedPhotos.length} user ${_userUploadedPhotos.length == 1 ? 'photo' : 'photos'}',
+                    style: const TextStyle(
+                      color: AppTheme.primary,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
         SizedBox(
@@ -988,29 +1118,65 @@ class _RestaurantDetailState extends State<RestaurantDetail>
           child: ListView.separated(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             scrollDirection: Axis.horizontal,
-            itemCount: photos.length,
+            itemCount: allPhotos.length,
             separatorBuilder: (context, index) => const SizedBox(width: 12),
             itemBuilder: (context, index) {
-              return ClipRRect(
-                borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-                child: Image.network(
-                  photos[index],
-                  width: 240,
-                  height: 180,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
+              final photo = allPhotos[index];
+              final isUserPhoto = index >= restaurantPhotos.length;
+
+              return Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+                    child: Image.network(
+                      photo,
                       width: 240,
                       height: 180,
-                      color: AppTheme.glassLight,
-                      child: const Icon(
-                        Icons.broken_image_rounded,
-                        size: 48,
-                        color: AppTheme.textTertiary,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          width: 240,
+                          height: 180,
+                          color: AppTheme.glassLight,
+                          child: const Icon(
+                            Icons.broken_image_rounded,
+                            size: 48,
+                            color: AppTheme.textTertiary,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  // ✅ Badge for user-uploaded photos
+                  if (isUserPhoto)
+                    Positioned(
+                      top: 8,
+                      left: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppTheme.secondary,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.person, size: 12, color: Colors.white),
+                            SizedBox(width: 4),
+                            Text(
+                              'User Photo',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    );
-                  },
-                ),
+                    ),
+                ],
               );
             },
           ),
@@ -1520,16 +1686,13 @@ class _RestaurantDetailState extends State<RestaurantDetail>
                         )
                       : _buildBeveragePlaceholder(),
                 ),
-                // ✅ UPDATED: Functional Camera & Share icons
                 Positioned(
                   top: 8,
                   right: 8,
                   child: Row(
                     children: [
                       GestureDetector(
-                        onTap: () {
-                          _toast('Photo upload coming soon');
-                        },
+                        onTap: () => _showPhotoUpload(bev),
                         child: Container(
                           width: 28,
                           height: 28,
