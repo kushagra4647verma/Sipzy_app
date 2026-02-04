@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../shared/ui/share_modal.dart';
 import '../../core/theme/app_theme.dart';
 import '../../services/beverage_service.dart';
@@ -28,6 +29,7 @@ class _BeverageDetailPageState extends State<BeverageDetailPage> {
   bool showRatingDialog = false;
   bool showReviewsDialog = false;
   bool showExpertBreakdown = false;
+  List<String> _userUploadedPhotos = [];
 
   bool submitting = false;
 
@@ -51,6 +53,14 @@ class _BeverageDetailPageState extends State<BeverageDetailPage> {
           beverage = result;
           hasError = false;
         });
+        if (mounted && beverage != null) {
+          final userPhotos = await _fetchUserUploadedBeveragePhotos();
+          if (mounted) {
+            setState(() {
+              _userUploadedPhotos = userPhotos;
+            });
+          }
+        }
       } else {
         throw Exception('Beverage not found');
       }
@@ -97,6 +107,45 @@ class _BeverageDetailPageState extends State<BeverageDetailPage> {
       if (mounted) {
         setState(() => submitting = false);
       }
+    }
+  }
+
+  Future<List<String>> _fetchUserUploadedBeveragePhotos() async {
+    try {
+      final supabase = Supabase.instance.client;
+
+      // List all files in the user-uploads folder
+      final result = await supabase.storage
+          .from('beverage-photos')
+          .list(path: 'user-uploads');
+
+      if (result.isEmpty) return [];
+
+      // Get beverage ID from current beverage
+      final currentBeverageId = widget.beverageId;
+
+      // Filter photos that belong to this beverage
+      final photos = <String>[];
+      for (final file in result) {
+        final fileName = file.name;
+
+        // Check if this photo belongs to current beverage
+        // Format: {beverageId}_{timestamp}.jpg
+        final beverageId = fileName.split('_').first;
+
+        if (beverageId == currentBeverageId) {
+          final photoUrl = supabase.storage
+              .from('beverage-photos')
+              .getPublicUrl('user-uploads/$fileName');
+          photos.add(photoUrl);
+        }
+      }
+
+      print('📸 Found ${photos.length} user-uploaded photos for this beverage');
+      return photos;
+    } catch (e) {
+      print('❌ Error fetching user-uploaded photos: $e');
+      return [];
     }
   }
 
@@ -1118,32 +1167,39 @@ class _BeverageDetailPageState extends State<BeverageDetailPage> {
           // ================= PHOTO UPLOAD =================
           _buildIconAction(
             icon: Icons.camera_alt_rounded,
-            onTap: _showPhotoUpload,
+            onTap: () => _showPhotoUpload(beverage!),
           ),
         ],
       ),
     );
   }
 
-  void _showPhotoUpload() async {
+  void _showPhotoUpload(Map bev) async {
     final cameraService = CameraService();
 
     final photoUrl = await cameraService.pickAndUpload(
       context: context,
-      bucket: 'beverage-photos',
+      bucket: 'beverage-photos', // ✅ Same bucket as restaurant photos
       folder: 'user-uploads',
-      filename: '${widget.beverageId}_${DateTime.now().millisecondsSinceEpoch}',
+      filename: '${bev['id']}_${DateTime.now().millisecondsSinceEpoch}',
     );
 
     if (photoUrl != null) {
-      // ✅ FIXED: Upload to backend using beverage service
       final success = await _beverageService.uploadBeveragePhoto(
-        widget.beverageId,
+        bev['id'].toString(),
         photoUrl,
       );
 
       if (success) {
         _toast('Photo uploaded successfully!');
+
+        // ✅ ADD: Refresh to fetch the new photo
+        final userPhotos = await _fetchUserUploadedBeveragePhotos();
+        if (mounted) {
+          setState(() {
+            _userUploadedPhotos = userPhotos;
+          });
+        }
       } else {
         _toast('Failed to save photo', isError: true);
       }
