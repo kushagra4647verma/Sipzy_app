@@ -127,16 +127,26 @@ class _HomePageState extends State<HomePage> {
         maxDistance: maxDistance < 10 ? maxDistance : null,
         sortBy: sortBy,
       );
-
+      var filteredRestaurants = fetchedRestaurants;
+      if (selectedRestaurantTypes.isNotEmpty) {
+        filteredRestaurants = filteredRestaurants.where((r) {
+          final type = (r['restaurant_type'] ?? r['restaurantType'] ?? '')
+              .toString()
+              .toLowerCase();
+          return selectedRestaurantTypes
+              .any((selected) => type.contains(selected.toLowerCase()));
+        }).toList();
+      }
+      if (minCost > 0 || maxCost < 5000) {
+        filteredRestaurants = filteredRestaurants.where((r) {
+          final priceRange = r['price_range'] ?? r['priceRange'] ?? 2;
+          final costForTwo = priceRange * 500;
+          return costForTwo >= minCost && costForTwo <= maxCost;
+        }).toList();
+      }
       if (mounted) {
-        // In home_page.dart, after fetching restaurants
         setState(() {
-          restaurants = List<Map<String, dynamic>>.from(
-            fetchedRestaurants.map((r) {
-              print('🔍 Restaurant data: $r'); // Add this line
-              return r;
-            }),
-          );
+          restaurants = List<Map<String, dynamic>>.from(filteredRestaurants);
         });
 
         // Fetch featured and trending only if no search/filters
@@ -314,15 +324,17 @@ class _HomePageState extends State<HomePage> {
         maxCost: maxCost,
         onApply: (filters) {
           setState(() {
-            selectedCuisines = filters['selectedCuisines'];
-            selectedBaseDrinks = filters['selectedBaseDrinks'];
-            selectedRestaurantTypes = filters['selectedRestaurantTypes'];
-            minRating = filters['minRating'];
-            maxDistance = filters['maxDistance'];
-            minCost = filters['minCost'];
-            maxCost = filters['maxCost'];
+            selectedCuisines = List<String>.from(filters['selectedCuisines']);
+            selectedBaseDrinks =
+                Set<String>.from(filters['selectedBaseDrinks']);
+            selectedRestaurantTypes =
+                Set<String>.from(filters['selectedRestaurantTypes']);
+            minRating = filters['minRating'] as double;
+            maxDistance = filters['maxDistance'] as double;
+            minCost = filters['minCost'] as double;
+            maxCost = filters['maxCost'] as double;
           });
-          fetchRestaurants();
+          fetchRestaurants(); // This should trigger the API call
         },
       ),
     );
@@ -347,14 +359,26 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Timer? _searchDebounce;
+
   void _handleSearchChanged(String query) {
     setState(() => searchQuery = query);
-    // Debounce search to avoid too many API calls
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (searchQuery == query && mounted) {
+
+    // Cancel previous timer
+    _searchDebounce?.cancel();
+
+    // Create new timer
+    _searchDebounce = Timer(const Duration(milliseconds: 500), () {
+      if (mounted) {
         fetchRestaurants();
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    super.dispose();
   }
 
   @override
