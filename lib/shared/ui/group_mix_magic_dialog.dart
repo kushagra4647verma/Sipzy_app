@@ -138,57 +138,87 @@ class _GroupMixMagicDialogState extends State<GroupMixMagicDialog> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          IconButton(
-            icon: const Icon(Icons.close, color: Colors.white),
-            onPressed: () => Navigator.pop(context),
-          ),
+          _step != GroupMixStep.participants
+              ? _backButton()
+              : IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white),
+                  onPressed: () => Navigator.pop(context),
+                ),
           const Icon(Icons.local_bar, color: AppTheme.primary, size: 30),
         ],
       ),
     );
   }
-
   // ------------------- STEP 1 -------------------
 
   Widget _participantsStep() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        children: [
-          _title(),
-          const SizedBox(height: 24),
-          TextField(
-            keyboardType: TextInputType.number,
-            style: const TextStyle(color: Colors.white),
-            decoration: InputDecoration(
-              labelText: 'Number of Participants',
-              hintText: 'e.g. 4',
-              filled: true,
-              fillColor: AppTheme.card,
-              border: OutlineInputBorder(
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          children: [
+            _title(),
+            const SizedBox(height: 24),
+
+            // Replace TextField with Dropdown
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppTheme.card,
                 borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppTheme.border),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<int>(
+                  value: _participants,
+                  isExpanded: true,
+                  dropdownColor: AppTheme.card,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                  ),
+                  icon: const Icon(
+                    Icons.keyboard_arrow_down,
+                    color: AppTheme.textSecondary,
+                  ),
+                  hint: const Text(
+                    'Number of Participants',
+                    style: TextStyle(color: AppTheme.textSecondary),
+                  ),
+                  items: List.generate(6, (index) => index + 1).map((count) {
+                    return DropdownMenuItem<int>(
+                      value: count,
+                      child: Text(
+                        '$count ${count == 1 ? 'participant' : 'participants'}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() {
+                        _participants = value;
+                        _baseDrinks = List.filled(value, null);
+                        _results.clear();
+                      });
+                    }
+                  },
+                ),
               ),
             ),
-            onChanged: (v) {
-              final n = int.tryParse(v);
-              if (n != null && n > 0 && n <= 6) {
-                setState(() {
-                  _participants = n;
-                  _baseDrinks = List.filled(n, null);
-                  _results.clear();
-                });
-              }
-            },
-          ),
-          const SizedBox(height: 24),
-          _primaryButton('Generate Mix', () {
-            setState(() => _step = GroupMixStep.baseSelection);
-          }),
-        ],
+
+            const SizedBox(height: 24),
+            _primaryButton('Next: Select Preferences', () {
+              setState(() => _step = GroupMixStep.baseSelection);
+            }),
+            const SizedBox(height: 8),
+          ],
+        ),
       ),
     );
   }
-
   // ------------------- STEP 2 -------------------
 
   Widget _baseSelectionStep() {
@@ -201,35 +231,83 @@ class _GroupMixMagicDialogState extends State<GroupMixMagicDialog> {
           children: [
             _title(),
             const SizedBox(height: 16),
+
+            // Add a subtitle
+            Text(
+              'Choose a spirit preference for each participant',
+              style: TextStyle(
+                color: AppTheme.textSecondary,
+                fontSize: 14,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+
             Expanded(
               child: ListView.builder(
                 itemCount: _participants,
                 itemBuilder: (_, i) {
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: DropdownButtonFormField<String>(
-                      initialValue: _baseDrinks[i],
-                      dropdownColor: AppTheme.card,
-                      hint: Text(
-                        'Participant ${i + 1} – Choose spirit',
-                        style: const TextStyle(color: Colors.white),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppTheme.card,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppTheme.border),
                       ),
-                      items: spirits.map((s) {
-                        return DropdownMenuItem(
-                          value: s,
-                          child: Text(
-                            s,
-                            style: const TextStyle(color: Colors.white),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _baseDrinks[i],
+                          isExpanded: true,
+                          dropdownColor: AppTheme.card,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
                           ),
-                        );
-                      }).toList(),
-                      onChanged: (v) => setState(() => _baseDrinks[i] = v),
+                          icon: const Icon(
+                            Icons.keyboard_arrow_down,
+                            color: AppTheme.textSecondary,
+                          ),
+                          hint: Text(
+                            'Participant ${i + 1} – Choose spirit (optional)',
+                            style:
+                                const TextStyle(color: AppTheme.textSecondary),
+                          ),
+                          items: [
+                            const DropdownMenuItem<String>(
+                              value: null,
+                              child: Text(
+                                'Surprise me!',
+                                style: TextStyle(
+                                  color: AppTheme.primary,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ),
+                            ...spirits.map((s) {
+                              return DropdownMenuItem<String>(
+                                value: s,
+                                child: Text(
+                                  s,
+                                  style: const TextStyle(color: Colors.white),
+                                ),
+                              );
+                            }).toList(),
+                          ],
+                          onChanged: (v) => setState(() => _baseDrinks[i] = v),
+                        ),
+                      ),
                     ),
                   );
                 },
               ),
             ),
+
+            const SizedBox(height: 8),
             _primaryButton('Generate Mix', _generateMix),
+            const SizedBox(height: 8),
           ],
         ),
       ),
@@ -237,6 +315,20 @@ class _GroupMixMagicDialogState extends State<GroupMixMagicDialog> {
   }
 
   // ------------------- STEP 3 -------------------
+  Widget _backButton() {
+    return IconButton(
+      icon: const Icon(Icons.arrow_back, color: Colors.white),
+      onPressed: () {
+        setState(() {
+          if (_step == GroupMixStep.baseSelection) {
+            _step = GroupMixStep.participants;
+          } else if (_step == GroupMixStep.result) {
+            _step = GroupMixStep.baseSelection;
+          }
+        });
+      },
+    );
+  }
 
   Widget _resultStep() {
     return Expanded(
@@ -256,7 +348,7 @@ class _GroupMixMagicDialogState extends State<GroupMixMagicDialog> {
                 ),
                 TextButton(
                   onPressed: _generateMix,
-                  child: const Text('Try Again'),
+                  child: const Text('Shuffle Again'),
                 ),
               ],
             ),
@@ -279,16 +371,38 @@ class _GroupMixMagicDialogState extends State<GroupMixMagicDialog> {
                     decoration: BoxDecoration(
                       color: AppTheme.card,
                       borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+                      border: Border.all(color: AppTheme.border),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _pill(rec['participant']),
+                        const SizedBox(height: 8),
+
+                        // Add beverage image if available
+                        if (bev['photo'] != null &&
+                            bev['photo'].toString().isNotEmpty)
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.network(
+                              bev['photo'],
+                              height: 60,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) =>
+                                  const SizedBox(height: 60),
+                            ),
+                          ),
+
                         const Spacer(),
                         Text(
                           bev['name'] ?? 'Drink',
                           style: const TextStyle(
-                              color: Colors.white, fontWeight: FontWeight.bold),
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 4),
                         Text(
@@ -303,7 +417,8 @@ class _GroupMixMagicDialogState extends State<GroupMixMagicDialog> {
                             const SizedBox(width: 4),
                             Text(
                               rec['rating'],
-                              style: const TextStyle(color: AppTheme.primary),
+                              style: const TextStyle(
+                                  color: AppTheme.primary, fontSize: 12),
                             ),
                           ],
                         ),
@@ -313,12 +428,36 @@ class _GroupMixMagicDialogState extends State<GroupMixMagicDialog> {
                 },
               ),
             ),
+            const SizedBox(height: 16),
+
+            // Add Done button
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  'Done',
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
           ],
         ),
       ),
     );
   }
-
   // ------------------- HELPERS -------------------
 
   Widget _title() => const Column(
