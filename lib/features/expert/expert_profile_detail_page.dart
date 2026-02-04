@@ -2,6 +2,13 @@ import 'package:flutter/material.dart';
 import '../../services/expert_service.dart';
 import '../../core/theme/app_theme.dart';
 
+/// Expert Profile Detail Page - Redesigned to match exact UI
+/// Features:
+/// - Purple gradient header with avatar
+/// - Quick stats cards (Total Ratings, Avg Score, Years Exp)
+/// - About section
+/// - Specializations tags
+/// - Recent expert ratings list with beverage thumbnails
 class ExpertProfileDetailPage extends StatefulWidget {
   final Map<String, dynamic> user;
   final String expertId;
@@ -75,10 +82,9 @@ class _ExpertProfileDetailPageState extends State<ExpertProfileDetailPage> {
     });
 
     try {
-      // UPDATED: Use new getExpertRatings method
       final ratings = await _expertService.getExpertRatings(
         widget.expertId,
-        limit: 20, // Load more ratings
+        limit: 20,
       );
 
       if (mounted) {
@@ -99,7 +105,6 @@ class _ExpertProfileDetailPageState extends State<ExpertProfileDetailPage> {
     }
   }
 
-  // UPDATED: Enhanced data extraction with field variation handling
   double _getAvgRating(Map? data) {
     if (data == null) return 0.0;
     final value =
@@ -147,7 +152,6 @@ class _ExpertProfileDetailPageState extends State<ExpertProfileDetailPage> {
           : hasError
               ? _buildError()
               : RefreshIndicator(
-                  // NEW: Pull to refresh
                   onRefresh: _loadExpertData,
                   color: AppTheme.primary,
                   backgroundColor: AppTheme.card,
@@ -162,20 +166,36 @@ class _ExpertProfileDetailPageState extends State<ExpertProfileDetailPage> {
     }
 
     return CustomScrollView(
-      physics:
-          const AlwaysScrollableScrollPhysics(), // NEW: For pull to refresh
+      physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
-        _buildAppBar(),
+        // Purple gradient header with avatar
+        _buildGradientHeader(),
+
         SliverToBoxAdapter(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildProfileHeader(),
-              _buildStatsSection(),
-              _buildAboutSection(),
-              _buildExpertiseSection(),
-              _buildRatingsSection(),
               const SizedBox(height: 24),
+
+              // Quick Stats Section
+              _buildQuickStats(),
+
+              const SizedBox(height: 24),
+
+              // About the Expert
+              _buildAboutSection(),
+
+              const SizedBox(height: 24),
+
+              // Specializations
+              _buildSpecializationsSection(),
+
+              const SizedBox(height: 24),
+
+              // Recent Expert Ratings
+              _buildRecentRatingsSection(),
+
+              const SizedBox(height: 80), // Bottom padding for navigation
             ],
           ),
         ),
@@ -183,329 +203,434 @@ class _ExpertProfileDetailPageState extends State<ExpertProfileDetailPage> {
     );
   }
 
-  // UPDATED: Enhanced app bar with gradient
-  Widget _buildAppBar() {
-    return SliverAppBar(
-      expandedHeight: 200,
-      pinned: true,
-      backgroundColor: AppTheme.background,
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back_rounded),
-        onPressed: () => Navigator.pop(context),
-      ),
-      flexibleSpace: FlexibleSpaceBar(
-        background: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AppTheme.secondary.withOpacity(0.3),
-                AppTheme.primary.withOpacity(0.2),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // UPDATED: Enhanced profile header
-  Widget _buildProfileHeader() {
+  /// Purple gradient header with back button, avatar, and expert info
+  Widget _buildGradientHeader() {
     final name = expertDetails?['name'] ?? 'Expert';
     final category = expertDetails?['category'] ?? 'Sommelier';
-    final city = expertDetails?['city'] ?? '';
     final avatar = expertDetails?['profile_photo'] ?? expertDetails?['avatar'];
     final verified =
         expertDetails?['verified'] ?? expertDetails?['status'] == 'approved';
 
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        children: [
-          // UPDATED: Avatar with verified badge and shadow
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              Container(
-                width: 130,
-                height: 130,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    colors: [
-                      AppTheme.secondary.withOpacity(0.3),
-                      AppTheme.primary.withOpacity(0.3),
-                    ],
-                  ),
-                ),
-              ),
-              Container(
-                width: 120,
-                height: 120,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppTheme.border, width: 3),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      blurRadius: 20,
-                      spreadRadius: 5,
-                    ),
-                  ],
-                ),
-                child: CircleAvatar(
-                  radius: 60,
-                  backgroundColor: AppTheme.secondary,
-                  backgroundImage:
-                      avatar != null && avatar.toString().isNotEmpty
-                          ? NetworkImage(avatar)
-                          : null,
-                  child: avatar == null || avatar.toString().isEmpty
-                      ? Text(
-                          name[0].toUpperCase(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 48,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        )
-                      : null,
-                ),
-              ),
-              if (verified)
-                Positioned(
-                  bottom: 5,
-                  right: 5,
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppTheme.secondary,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: AppTheme.background, width: 3),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppTheme.secondary.withOpacity(0.5),
-                          blurRadius: 8,
-                          spreadRadius: 2,
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.verified,
-                      color: Colors.white,
-                      size: 24,
-                    ),
-                  ),
-                ),
-            ],
+    return SliverAppBar(
+      expandedHeight: 320,
+      pinned: true,
+      backgroundColor: AppTheme.background,
+      leading: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.3),
+            shape: BoxShape.circle,
           ),
-          const SizedBox(height: 16),
-          Text(
-            name,
-            style: const TextStyle(
-              color: AppTheme.textPrimary,
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-            ),
-            textAlign: TextAlign.center,
+          child: IconButton(
+            icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+            onPressed: () => Navigator.pop(context),
           ),
-          const SizedBox(height: 8),
-          // UPDATED: Enhanced category badge
-          Container(
+        ),
+      ),
+      actions: [
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppTheme.primary.withOpacity(0.3),
-                  AppTheme.secondary.withOpacity(0.3),
-                ],
-              ),
+              color: AppTheme.secondary.withOpacity(0.9),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppTheme.primary.withOpacity(0.5)),
+              border: Border.all(color: Colors.white.withOpacity(0.3)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
-                  Icons.star_rounded,
-                  color: AppTheme.primary,
-                  size: 18,
-                ),
+                const Icon(Icons.verified, color: Colors.white, size: 16),
                 const SizedBox(width: 6),
-                Text(
-                  category,
-                  style: const TextStyle(
-                    color: AppTheme.primary,
-                    fontSize: 14,
+                const Text(
+                  'SipZy Expert',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
             ),
           ),
-          if (city.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.location_on,
-                  color: AppTheme.textSecondary,
-                  size: 16,
+        ),
+      ],
+      flexibleSpace: FlexibleSpaceBar(
+        background: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Purple gradient background
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    AppTheme.secondary,
+                    AppTheme.secondary.withOpacity(0.7),
+                    AppTheme.primary.withOpacity(0.3),
+                  ],
                 ),
-                const SizedBox(width: 4),
-                Text(
-                  city,
-                  style: const TextStyle(
-                    color: AppTheme.textSecondary,
-                    fontSize: 14,
+              ),
+            ),
+
+            // Content
+            SafeArea(
+              child: SingleChildScrollView(
+                physics: const NeverScrollableScrollPhysics(),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: 320,
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const SizedBox(height: 30),
+
+                      // Avatar with verified badge
+                      Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          // Outer glow
+                          Container(
+                            width: 130,
+                            height: 130,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.white.withOpacity(0.2),
+                                  blurRadius: 30,
+                                  spreadRadius: 10,
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // Avatar
+                          Container(
+                            width: 120,
+                            height: 120,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 3),
+                            ),
+                            child: CircleAvatar(
+                              radius: 60,
+                              backgroundColor: Colors.white.withOpacity(0.2),
+                              backgroundImage:
+                                  avatar != null && avatar.toString().isNotEmpty
+                                      ? NetworkImage(avatar)
+                                      : null,
+                              child: avatar == null || avatar.toString().isEmpty
+                                  ? Text(
+                                      name[0].toUpperCase(),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 48,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    )
+                                  : null,
+                            ),
+                          ),
+
+                          // Verified badge
+                          if (verified)
+                            Positioned(
+                              bottom: 0,
+                              right: 0,
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.secondary,
+                                  shape: BoxShape.circle,
+                                  border:
+                                      Border.all(color: Colors.white, width: 3),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color:
+                                          AppTheme.secondary.withOpacity(0.5),
+                                      blurRadius: 8,
+                                      spreadRadius: 2,
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(
+                                  Icons.verified,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      // Name with "Updated" status
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            name,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      // Verified Expert badge
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.3),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.verified,
+                              color: Colors.white,
+                              size: 12,
+                            ),
+                            const SizedBox(width: 4),
+                            const Text(
+                              'Verified Expert',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      // Category badge (Sommelier)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primary,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppTheme.primary.withOpacity(0.3),
+                              blurRadius: 8,
+                              spreadRadius: 2,
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.wine_bar,
+                              color: Colors.black,
+                              size: 14,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              category,
+                              style: const TextStyle(
+                                color: Colors.black,
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
+              ),
             ),
           ],
-        ],
+        ),
       ),
     );
   }
 
-  // UPDATED: Enhanced stats section with better layout
-  Widget _buildStatsSection() {
-    final avgRating = _getAvgRating(expertDetails);
+  /// Quick Stats Section - 3 cards
+  Widget _buildQuickStats() {
     final totalRatings = _getTotalRatings(expertDetails);
+    final avgRating = _getAvgRating(expertDetails);
     final yearsExp = _getYearsExp(expertDetails);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: AppTheme.card,
-          borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-          border: Border.all(color: AppTheme.border),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _buildStatItem(
-              icon: Icons.star_rounded,
-              value: avgRating.toStringAsFixed(1),
-              label: 'Avg Rating',
-              color: AppTheme.primary,
-            ),
-            Container(
-              width: 1,
-              height: 40,
-              color: AppTheme.border,
-            ),
-            _buildStatItem(
-              icon: Icons.rate_review_rounded,
-              value: totalRatings.toString(),
-              label: 'Ratings',
-              color: AppTheme.secondary,
-            ),
-            Container(
-              width: 1,
-              height: 40,
-              color: AppTheme.border,
-            ),
-            _buildStatItem(
-              icon: Icons.workspace_premium_rounded,
-              value: yearsExp.toString(),
-              label: 'Years Exp',
-              color: AppTheme.secondary,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatItem({
-    required IconData icon,
-    required String value,
-    required String label,
-    required Color color,
-  }) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.2),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(icon, color: color, size: 24),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          value,
-          style: const TextStyle(
-            color: AppTheme.textPrimary,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: const TextStyle(
-            color: AppTheme.textSecondary,
-            fontSize: 12,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildAboutSection() {
-    final bio = expertDetails?['bio'] ?? '';
-    if (bio.isEmpty) return const SizedBox.shrink();
-
-    return Padding(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Section header
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppTheme.primary.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                ),
-                child: const Icon(
-                  Icons.person_outline,
-                  color: AppTheme.primary,
-                  size: 20,
-                ),
+              const Icon(
+                Icons.trending_up,
+                color: AppTheme.primary,
+                size: 20,
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               const Text(
-                'About',
+                'Quick Stats',
                 style: TextStyle(
                   color: AppTheme.textPrimary,
-                  fontSize: 20,
+                  fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+
+          const SizedBox(height: 16),
+
+          // Stats cards row
+          Row(
+            children: [
+              // Total Ratings
+              Expanded(
+                child: _buildStatCard(
+                  icon: Icons.star_rounded,
+                  iconColor: AppTheme.primary,
+                  value: totalRatings.toString(),
+                  label: 'Total Ratings',
+                ),
+              ),
+
+              const SizedBox(width: 12),
+
+              // Avg Score
+              Expanded(
+                child: _buildStatCard(
+                  icon: Icons.trending_up,
+                  iconColor: AppTheme.secondary,
+                  value: avgRating.toStringAsFixed(1),
+                  label: 'Avg Score',
+                ),
+              ),
+
+              const SizedBox(width: 12),
+
+              // Years Exp
+              Expanded(
+                child: _buildStatCard(
+                  icon: Icons.calendar_today,
+                  iconColor: Colors.green,
+                  value: yearsExp.toString(),
+                  label: 'Years Exp',
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatCard({
+    required IconData icon,
+    required Color iconColor,
+    required String value,
+    required String label,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Column(
+        children: [
           Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: iconColor.withOpacity(0.2),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: iconColor, size: 24),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            value,
+            style: const TextStyle(
+              color: AppTheme.textPrimary,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: const TextStyle(
+              color: AppTheme.textSecondary,
+              fontSize: 11,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// About the Expert section
+  Widget _buildAboutSection() {
+    final bio = expertDetails?['bio'] ??
+        'Expert sommelier with 15+ years of experience in beverage tasting and evaluation.';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Section header
+          Row(
+            children: [
+              const Icon(
+                Icons.info_outline,
+                color: AppTheme.primary,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'About the Expert',
+                style: TextStyle(
+                  color: AppTheme.textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+
+          // Bio text
+          Container(
+            width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppTheme.glassLight,
-              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+              color: AppTheme.card,
+              borderRadius: BorderRadius.circular(12),
               border: Border.all(color: AppTheme.border),
             ),
             child: Text(
@@ -522,42 +647,40 @@ class _ExpertProfileDetailPageState extends State<ExpertProfileDetailPage> {
     );
   }
 
-  // UPDATED: Enhanced expertise section
-  Widget _buildExpertiseSection() {
-    final expertise = expertDetails?['expertise'] as List?;
-    if (expertise == null || expertise.isEmpty) return const SizedBox.shrink();
+  /// Specializations section with purple tags
+  Widget _buildSpecializationsSection() {
+    // Default specializations if none provided
+    final expertise = expertDetails?['expertise'] as List? ??
+        ['Cocktails', 'Wine', 'Whiskey', 'Craft Beer', 'Mocktails'];
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Section header
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppTheme.secondary.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                ),
-                child: const Icon(
-                  Icons.local_bar_rounded,
-                  color: AppTheme.secondary,
-                  size: 20,
-                ),
+              const Icon(
+                Icons.local_bar,
+                color: AppTheme.primary,
+                size: 20,
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               const Text(
-                'Expertise',
+                'Specializations',
                 style: TextStyle(
                   color: AppTheme.textPrimary,
-                  fontSize: 20,
+                  fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ],
           ),
+
           const SizedBox(height: 12),
+
+          // Tags
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -568,35 +691,20 @@ class _ExpertProfileDetailPageState extends State<ExpertProfileDetailPage> {
                   vertical: 8,
                 ),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppTheme.secondary.withOpacity(0.3),
-                      AppTheme.primary.withOpacity(0.2),
-                    ],
-                  ),
+                  color: Colors.transparent,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: AppTheme.secondary.withOpacity(0.5),
+                    color: AppTheme.secondary,
+                    width: 1.5,
                   ),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.check_circle,
-                      color: AppTheme.secondary,
-                      size: 14,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      item.toString(),
-                      style: const TextStyle(
-                        color: AppTheme.textPrimary,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  item.toString(),
+                  style: const TextStyle(
+                    color: AppTheme.secondary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               );
             }).toList(),
@@ -606,48 +714,36 @@ class _ExpertProfileDetailPageState extends State<ExpertProfileDetailPage> {
     );
   }
 
-  // UPDATED: Enhanced ratings section
-  Widget _buildRatingsSection() {
+  /// Recent Expert Ratings section
+  Widget _buildRecentRatingsSection() {
     return Padding(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Section header
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppTheme.secondary.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                ),
-                child: const Icon(
-                  Icons.rate_review_rounded,
-                  color: AppTheme.secondary,
-                  size: 20,
-                ),
+              const Icon(
+                Icons.star_rounded,
+                color: AppTheme.primary,
+                size: 20,
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               const Text(
-                'Recent Ratings',
+                'Recent Expert Ratings',
                 style: TextStyle(
                   color: AppTheme.textPrimary,
-                  fontSize: 20,
+                  fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const Spacer(),
-              if (!ratingsLoading && expertRatings.isNotEmpty)
-                Text(
-                  '${expertRatings.length} total',
-                  style: const TextStyle(
-                    color: AppTheme.textTertiary,
-                    fontSize: 12,
-                  ),
-                ),
             ],
           ),
+
           const SizedBox(height: 16),
+
+          // Ratings list
           if (ratingsLoading)
             const Center(
               child: Padding(
@@ -666,223 +762,111 @@ class _ExpertProfileDetailPageState extends State<ExpertProfileDetailPage> {
     );
   }
 
-  // UPDATED: Enhanced rating card
+  /// Individual rating card with beverage thumbnail
   Widget _buildRatingCard(Map rating) {
-    final beverageName = rating['beverage_name'] ?? 'Unknown Beverage';
-    final beverageType = rating['beverage_type'] ?? '';
-    final score = (rating['score'] ?? 0).toDouble();
-    final comment = rating['comment'] ?? '';
-    final date = rating['created_at'] ?? rating['date'] ?? '';
-
-    // NEW: Extract rating breakdown scores
-    final aroma = (rating['aroma_score'] ?? rating['aroma'] ?? 0).toDouble();
-    final taste = (rating['taste_score'] ?? rating['taste'] ?? 0).toDouble();
-    final finish = (rating['finish_score'] ?? rating['finish'] ?? 0).toDouble();
-    final balance =
-        (rating['balance_score'] ?? rating['balance'] ?? 0).toDouble();
+    final beverageName = rating['beverage_name'] ??
+        rating['beverages']?['name'] ??
+        'Unknown Beverage';
+    final beveragePhoto =
+        rating['beverage_photo'] ?? rating['beverages']?['photo'];
+    final score = (rating['score'] ??
+            rating['avgRating'] ??
+            _calculateAverageRating(rating))
+        .toDouble();
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AppTheme.card,
-        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppTheme.border),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          // Header
+          // Beverage thumbnail
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: beveragePhoto != null && beveragePhoto.toString().isNotEmpty
+                ? Image.network(
+                    beveragePhoto,
+                    width: 50,
+                    height: 50,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => _buildPhotoPlaceholder(),
+                  )
+                : _buildPhotoPlaceholder(),
+          ),
+
+          const SizedBox(width: 12),
+
+          // Beverage name
+          Expanded(
+            child: Text(
+              beverageName,
+              style: const TextStyle(
+                color: AppTheme.textPrimary,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+
+          const SizedBox(width: 12),
+
+          // Rating
           Row(
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      beverageName,
-                      style: const TextStyle(
-                        color: AppTheme.textPrimary,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    if (beverageType.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        beverageType,
-                        style: const TextStyle(
-                          color: AppTheme.textTertiary,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
+              const Icon(
+                Icons.star,
+                color: AppTheme.primary,
+                size: 16,
               ),
-              // Overall score badge
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppTheme.primary.withOpacity(0.3),
-                      AppTheme.secondary.withOpacity(0.3),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppTheme.primary.withOpacity(0.5)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.star_rounded,
-                      color: AppTheme.primary,
-                      size: 16,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      score.toStringAsFixed(1),
-                      style: const TextStyle(
-                        color: AppTheme.primary,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
+              const SizedBox(width: 4),
+              Text(
+                score.toStringAsFixed(1),
+                style: const TextStyle(
+                  color: AppTheme.primary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ],
           ),
-
-          // NEW: Rating breakdown
-          if (aroma > 0 || taste > 0 || finish > 0 || balance > 0) ...[
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                if (aroma > 0) _buildMetricBadge('Aroma', aroma),
-                if (taste > 0) _buildMetricBadge('Taste', taste),
-                if (finish > 0) _buildMetricBadge('Finish', finish),
-                if (balance > 0) _buildMetricBadge('Balance', balance),
-              ],
-            ),
-          ],
-
-          // Comment
-          if (comment.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppTheme.glassLight,
-                borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                border: Border.all(color: AppTheme.border.withOpacity(0.5)),
-              ),
-              child: Text(
-                comment,
-                style: const TextStyle(
-                  color: AppTheme.textSecondary,
-                  fontSize: 13,
-                  height: 1.4,
-                ),
-              ),
-            ),
-          ],
-
-          // Date
-          if (date.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Icon(
-                  Icons.access_time_rounded,
-                  color: AppTheme.textTertiary,
-                  size: 12,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  _formatDate(date),
-                  style: const TextStyle(
-                    color: AppTheme.textTertiary,
-                    fontSize: 11,
-                  ),
-                ),
-              ],
-            ),
-          ],
         ],
       ),
     );
   }
 
-  // NEW: Metric badge widget
-  Widget _buildMetricBadge(String label, double score) {
+  Widget _buildPhotoPlaceholder() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      width: 50,
+      height: 50,
       decoration: BoxDecoration(
-        color: AppTheme.secondary.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: AppTheme.secondary.withOpacity(0.3),
-        ),
+        color: AppTheme.glassStrong,
+        borderRadius: BorderRadius.circular(8),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: AppTheme.textSecondary,
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            score.toStringAsFixed(1),
-            style: const TextStyle(
-              color: AppTheme.secondary,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
+      child: const Icon(
+        Icons.local_bar,
+        color: AppTheme.textTertiary,
+        size: 24,
       ),
     );
   }
 
-  // NEW: Format date helper
-  String _formatDate(String dateStr) {
-    try {
-      final date = DateTime.parse(dateStr);
-      final now = DateTime.now();
-      final diff = now.difference(date);
+  double _calculateAverageRating(Map rating) {
+    final presentation = rating['presentation_rating'] ?? 0;
+    final taste = rating['taste_rating'] ?? 0;
+    final ingredients = rating['ingredients_rating'] ?? 0;
+    final accuracy = rating['accuracy_rating'] ?? 0;
 
-      if (diff.inDays == 0) {
-        return 'Today';
-      } else if (diff.inDays == 1) {
-        return 'Yesterday';
-      } else if (diff.inDays < 7) {
-        return '${diff.inDays} days ago';
-      } else if (diff.inDays < 30) {
-        final weeks = (diff.inDays / 7).floor();
-        return '$weeks week${weeks > 1 ? 's' : ''} ago';
-      } else if (diff.inDays < 365) {
-        final months = (diff.inDays / 30).floor();
-        return '$months month${months > 1 ? 's' : ''} ago';
-      } else {
-        final years = (diff.inDays / 365).floor();
-        return '$years year${years > 1 ? 's' : ''} ago';
-      }
-    } catch (e) {
-      return dateStr;
+    if (presentation == 0 && taste == 0 && ingredients == 0 && accuracy == 0) {
+      return 0;
     }
+
+    return (presentation + taste + ingredients + accuracy) / 4;
   }
 
   Widget _buildRatingsError() {
@@ -890,7 +874,7 @@ class _ExpertProfileDetailPageState extends State<ExpertProfileDetailPage> {
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: AppTheme.card,
-        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppTheme.border),
       ),
       child: Column(
@@ -926,7 +910,7 @@ class _ExpertProfileDetailPageState extends State<ExpertProfileDetailPage> {
       padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
         color: AppTheme.card,
-        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppTheme.border),
       ),
       child: Column(
