@@ -766,11 +766,17 @@ class _BeverageDetailPageState extends State<BeverageDetailPage> {
       );
     }
 
-    // Extract ratings
     final ratings = beverage!['ratings'] as Map<String, dynamic>? ?? {};
-    final avgHuman = ratings['avgHuman'] ?? ratings['avghuman'] ?? 0;
-    final countHuman = ratings['countHuman'] ?? ratings['counthuman'] ?? 0;
-    final avgExpert = ratings['avgExpert'] ?? ratings['avgexpert'] ?? 0;
+    final avgHuman =
+        (ratings['avgHuman'] ?? beverage!['avg_rating_human'] ?? 0).toDouble();
+    final countHuman =
+        (ratings['countHuman'] ?? beverage!['total_ratings_human'] ?? 0)
+            .toInt();
+    final avgExpert =
+        (ratings['avgExpert'] ?? beverage!['avg_rating_expert'] ?? 0)
+            .toDouble();
+    final sipzyRating =
+        (ratings['sipzyRating'] ?? beverage!['sipzy_rating'] ?? 0).toDouble();
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -779,7 +785,7 @@ class _BeverageDetailPageState extends State<BeverageDetailPage> {
         children: [
           _buildHeader(),
           const SizedBox(height: 16),
-          _buildRatingsSection(avgHuman, countHuman, avgExpert),
+          _buildRatingsSection(avgHuman, countHuman, avgExpert, sipzyRating),
           const SizedBox(height: 16),
           _buildDetailsSection(),
           const SizedBox(height: 16),
@@ -912,14 +918,14 @@ class _BeverageDetailPageState extends State<BeverageDetailPage> {
   }
 
   Widget _buildRatingsSection(
-      dynamic avgHuman, dynamic countHuman, dynamic avgExpert) {
+      double avgHuman, int countHuman, double avgExpert, double sipzyRating) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         children: [
           _buildRatingCard(
             label: 'SipZy Rating',
-            value: 0.0, // Not in API response
+            value: sipzyRating,
             color: AppTheme.primary,
           ),
           const SizedBox(height: 12),
@@ -1011,8 +1017,16 @@ class _BeverageDetailPageState extends State<BeverageDetailPage> {
   Widget _buildDetailsSection() {
     final description = beverage!['description'] ?? '';
     final price = beverage!['price'] ?? 0;
-    final baseType = beverage!['baseType'] ?? beverage!['basetype'] ?? 'N/A';
+    final baseType = beverage!['base_type'] ?? beverage!['baseType'] ?? 'N/A';
+    final drinkType = beverage!['drink_type'] ?? beverage!['drinkType'] ?? '';
     final category = beverage!['category'] ?? 'N/A';
+    final ingredients = beverage!['ingredients'] as List? ?? [];
+    final flavorTags =
+        beverage!['flavor_tags'] ?? beverage!['flavorTags'] as List? ?? [];
+    final perfectPairing = beverage!['perfect_pairing'] ??
+        beverage!['perfectPairing'] as List? ??
+        [];
+    final sizeVol = beverage!['size_vol'] ?? beverage!['sizeVol'] ?? '';
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -1039,7 +1053,16 @@ class _BeverageDetailPageState extends State<BeverageDetailPage> {
               _buildDetailRow('Description', description),
             _buildDetailRow('Price', '₹$price'),
             _buildDetailRow('Base Drink', baseType),
+            if (drinkType.isNotEmpty) _buildDetailRow('Drink Type', drinkType),
             _buildDetailRow('Category', category),
+            if (sizeVol.isNotEmpty)
+              _buildDetailRow('Size/Volume', '$sizeVol ml'),
+            if (ingredients.isNotEmpty)
+              _buildDetailRow('Ingredients', ingredients.join(', ')),
+            if (flavorTags.isNotEmpty)
+              _buildDetailRow('Flavor Profile', flavorTags.join(', ')),
+            if (perfectPairing.isNotEmpty)
+              _buildDetailRow('Perfect Pairing', perfectPairing.join(', ')),
           ],
         ),
       ),

@@ -33,7 +33,7 @@ class _RestaurantDetailState extends State<RestaurantDetail>
   final _beverageService = BeverageService();
   final _eventService = EventService();
   final _userService = UserService();
-
+  String _menuTab = 'beverages';
   Restaurant? restaurant;
   List<String> _userUploadedPhotos = [];
   List beverages = [];
@@ -491,87 +491,6 @@ class _RestaurantDetailState extends State<RestaurantDetail>
     );
   }
 
-  Widget _buildOpeningHoursSection() {
-    final hours = restaurant!.openingHours;
-    if (hours.isEmpty) return const SizedBox.shrink();
-
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Opening Hours',
-            style: TextStyle(
-              color: AppTheme.textPrimary,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Container(
-            decoration: BoxDecoration(
-              color: AppTheme.card,
-              borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-              border: Border.all(color: AppTheme.border),
-            ),
-            child: Column(
-              children: hours.map<Widget>((daySchedule) {
-                final day = daySchedule['day'] ?? '';
-                final isClosed = daySchedule['isClosed'] ?? false;
-                final timeSlots = daySchedule['timeSlots'] as List? ?? [];
-
-                return Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(
-                        color: AppTheme.border.withOpacity(0.3),
-                      ),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        day,
-                        style: const TextStyle(
-                          color: AppTheme.textPrimary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      if (isClosed)
-                        const Text(
-                          'Closed',
-                          style: TextStyle(
-                            color: AppTheme.textTertiary,
-                            fontStyle: FontStyle.italic,
-                          ),
-                        )
-                      else
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: timeSlots.map<Widget>((slot) {
-                            return Text(
-                              '${slot['openTime']} - ${slot['closeTime']}',
-                              style: const TextStyle(
-                                color: AppTheme.textSecondary,
-                              ),
-                            );
-                          }).toList(),
-                        ),
-                    ],
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     if (loading) {
@@ -638,7 +557,6 @@ class _RestaurantDetailState extends State<RestaurantDetail>
               // ================= DISCOVERY FIRST =================
               _buildToggleSearchSort(),
               _buildActionButtons(), // Mix Magic, Filters, etc.
-              _buildBeveragesGrid(),
 
               // ================= SOCIAL + TRUST =================
               _buildTopSipzySection(),
@@ -647,10 +565,9 @@ class _RestaurantDetailState extends State<RestaurantDetail>
 
               // ================= DETAILS =================
               _buildAmenitiesSection(),
-              _buildOpeningHoursSection(),
+              _buildMenuTabs(),
               _buildContactSection(),
               _buildPhotoGallerySection(),
-              _buildFoodMenuGallery(),
               _buildEventsSection(),
 
               const SizedBox(height: 80),
@@ -912,38 +829,307 @@ class _RestaurantDetailState extends State<RestaurantDetail>
 
   Widget _buildRestaurantInfo() {
     final rating = restaurant!['sipzy_rating'] ?? 0;
+    final hours = restaurant!.openingHours;
 
     return Container(
       padding: const EdgeInsets.all(16),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: AppTheme.primary.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppTheme.primary.withOpacity(0.5)),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.star_rounded,
-                  color: AppTheme.primary,
-                  size: 20,
+          Row(
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppTheme.primary.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppTheme.primary.withOpacity(0.5)),
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  rating.toStringAsFixed(1),
-                  style: const TextStyle(
-                    color: AppTheme.primary,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.star_rounded,
+                      color: AppTheme.primary,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      rating.toStringAsFixed(1),
+                      style: const TextStyle(
+                        color: AppTheme.primary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 12),
+              if (hours.isNotEmpty) _buildOpeningHoursToggle(),
+            ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildOpeningHoursToggle() {
+    final hours = restaurant!.openingHours;
+    final isOpen = _checkIfOpen(hours);
+
+    return GestureDetector(
+      onTap: () => _showOpeningHoursSheet(),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isOpen
+              ? Colors.green.withOpacity(0.2)
+              : Colors.red.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isOpen
+                ? Colors.green.withOpacity(0.5)
+                : Colors.red.withOpacity(0.5),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.access_time_rounded,
+              color: isOpen ? Colors.green : Colors.red,
+              size: 16,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              isOpen ? 'Open' : 'Closed',
+              style: TextStyle(
+                color: isOpen ? Colors.green : Colors.red,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Icon(
+              Icons.keyboard_arrow_down,
+              color: isOpen ? Colors.green : Colors.red,
+              size: 16,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  bool _checkIfOpen(List hours) {
+    if (hours.isEmpty) return false;
+
+    final now = DateTime.now();
+    final weekdays = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday'
+    ];
+    final todayName = weekdays[now.weekday - 1];
+
+    final todaySchedule = hours.firstWhere(
+      (h) => h['day'] == todayName,
+      orElse: () => null,
+    );
+
+    if (todaySchedule == null || todaySchedule['isClosed'] == true) {
+      return false;
+    }
+
+    final timeSlots = todaySchedule['timeSlots'] as List? ?? [];
+    if (timeSlots.isEmpty) return false;
+
+    final currentTime = TimeOfDay.now();
+    final currentMinutes = currentTime.hour * 60 + currentTime.minute;
+
+    for (final slot in timeSlots) {
+      final openTime = _parseTime(slot['openTime']);
+      final closeTime = _parseTime(slot['closeTime']);
+
+      if (openTime == null || closeTime == null) continue;
+
+      // Handle closing past midnight
+      if (closeTime < openTime) {
+        // e.g., 12 PM to 1 AM next day
+        if (currentMinutes >= openTime || currentMinutes <= closeTime) {
+          return true;
+        }
+      } else {
+        if (currentMinutes >= openTime && currentMinutes <= closeTime) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  int? _parseTime(String time) {
+    try {
+      // Handle formats like "12 Noon", "1:00 AM", "11:30 PM", "12 Midnight"
+      time = time.trim().toLowerCase();
+
+      if (time.contains('noon')) {
+        return 12 * 60; // 12:00 PM
+      }
+      if (time.contains('midnight')) {
+        return 0; // 00:00
+      }
+
+      final parts = time.split(' ');
+      if (parts.length < 2) return null;
+
+      final timePart = parts[0];
+      final period = parts[1]; // AM or PM
+
+      final timeParts = timePart.split(':');
+      int hour = int.parse(timeParts[0]);
+      int minute = timeParts.length > 1 ? int.parse(timeParts[1]) : 0;
+
+      // Convert to 24-hour format
+      if (period.contains('pm') && hour != 12) {
+        hour += 12;
+      } else if (period.contains('am') && hour == 12) {
+        hour = 0;
+      }
+
+      return hour * 60 + minute;
+    } catch (e) {
+      print('Error parsing time: $time - $e');
+      return null;
+    }
+  }
+
+  void _showOpeningHoursSheet() {
+    final hours = restaurant!.openingHours;
+    final now = DateTime.now();
+    final weekdays = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday'
+    ];
+    final todayName = weekdays[now.weekday - 1];
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius:
+            BorderRadius.vertical(top: Radius.circular(AppTheme.radiusLg)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Opening Hours',
+              style: TextStyle(
+                color: AppTheme.textPrimary,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 20),
+            ...hours.map<Widget>((daySchedule) {
+              final day = daySchedule['day'] ?? '';
+              final isClosed = daySchedule['isClosed'] ?? false;
+              final timeSlots = daySchedule['timeSlots'] as List? ?? [];
+              final isToday = day == todayName;
+
+              return Container(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: isToday ? AppTheme.primary.withOpacity(0.1) : null,
+                  borderRadius: BorderRadius.circular(8),
+                  border: isToday
+                      ? Border.all(color: AppTheme.primary.withOpacity(0.3))
+                      : null,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          SizedBox(
+                            width: 80,
+                            child: Text(
+                              day,
+                              style: TextStyle(
+                                color: isToday
+                                    ? AppTheme.primary
+                                    : AppTheme.textPrimary,
+                                fontWeight:
+                                    isToday ? FontWeight.bold : FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          if (isToday)
+                            Container(
+                              margin: const EdgeInsets.only(left: 8),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primary,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Text(
+                                'Today',
+                                style: TextStyle(
+                                  color: Colors.black,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      if (isClosed)
+                        const Text(
+                          'Closed',
+                          style: TextStyle(
+                            color: AppTheme.textTertiary,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        )
+                      else
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: timeSlots.map<Widget>((slot) {
+                            return Text(
+                              '${slot['openTime']} - ${slot['closeTime']}',
+                              style: TextStyle(
+                                color: isToday
+                                    ? AppTheme.primary
+                                    : AppTheme.textSecondary,
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+            const SizedBox(height: 16),
+          ],
+        ),
       ),
     );
   }
@@ -1063,6 +1249,418 @@ class _RestaurantDetailState extends State<RestaurantDetail>
             }).toList(),
           ),
         ],
+      ),
+    );
+  }
+
+  // After _buildAmenitiesSection(), add this new method
+  Widget _buildMenuTabs() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _menuTab = 'beverages'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: _menuTab == 'beverages'
+                          ? AppTheme.primary
+                          : AppTheme.glassLight,
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(AppTheme.radiusMd),
+                        bottomLeft: Radius.circular(AppTheme.radiusMd),
+                      ),
+                      border: Border.all(
+                        color: _menuTab == 'beverages'
+                            ? AppTheme.primary
+                            : AppTheme.border,
+                      ),
+                    ),
+                    child: Text(
+                      'Detailed Beverage Menu',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: _menuTab == 'beverages'
+                            ? Colors.black
+                            : AppTheme.textPrimary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _menuTab = 'food'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: _menuTab == 'food'
+                          ? AppTheme.primary
+                          : AppTheme.glassLight,
+                      borderRadius: const BorderRadius.only(
+                        topRight: Radius.circular(AppTheme.radiusMd),
+                        bottomRight: Radius.circular(AppTheme.radiusMd),
+                      ),
+                      border: Border.all(
+                        color: _menuTab == 'food'
+                            ? AppTheme.primary
+                            : AppTheme.border,
+                      ),
+                    ),
+                    child: Text(
+                      'Food Menu Photo',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: _menuTab == 'food'
+                            ? Colors.black
+                            : AppTheme.textPrimary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (_menuTab == 'beverages')
+            _buildDetailedBeverageMenu()
+          else
+            _buildFoodMenuGalleryContent(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailedBeverageMenu() {
+    if (beverages.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color: AppTheme.card,
+          borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+          border: Border.all(color: AppTheme.border),
+        ),
+        child: const Column(
+          children: [
+            Icon(Icons.local_bar_rounded,
+                size: 48, color: AppTheme.textTertiary),
+            SizedBox(height: 16),
+            Text(
+              'No beverages available',
+              style: TextStyle(color: AppTheme.textSecondary),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      children:
+          beverages.map((bev) => _buildDetailedBeverageCard(bev)).toList(),
+    );
+  }
+
+  Widget _buildDetailedBeverageCard(Map bev) {
+    final photo = bev['photo'];
+    final name = bev['name'] ?? 'Beverage';
+    final price = bev['price'] ?? 0;
+    final flavorTags = bev['flavor_tags'] ?? bev['flavorTags'] as List? ?? [];
+    final sipzyRating =
+        (bev['sipzy_rating'] ?? bev['sipzyRating'] ?? 0).toDouble();
+    final avgHuman =
+        (bev['avg_rating_human'] ?? bev['ratings']?['avgHuman'] ?? 0)
+            .toDouble();
+    final countHuman =
+        (bev['total_ratings_human'] ?? bev['ratings']?['countHuman'] ?? 0)
+            .toInt();
+    final avgExpert =
+        (bev['avg_rating_expert'] ?? bev['ratings']?['avgExpert'] ?? 0)
+            .toDouble();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: AppTheme.card,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Image with overlay buttons
+          Stack(
+            children: [
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(AppTheme.radiusLg),
+                ),
+                child: photo != null && photo.toString().isNotEmpty
+                    ? Image.network(
+                        photo,
+                        height: 200,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) =>
+                            _buildBeveragePlaceholder(),
+                      )
+                    : _buildBeveragePlaceholder(),
+              ),
+              Positioned(
+                top: 12,
+                right: 12,
+                child: Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () => _showPhotoUpload(bev),
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: const BoxDecoration(
+                          color: Colors.black54,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.camera_alt_rounded,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: () {
+                        showDialog(
+                          context: context,
+                          builder: (context) => ShareModal(
+                            onClose: () => Navigator.pop(context),
+                            item: {
+                              'title': name,
+                              'description':
+                                  'Check out this drink at ${restaurant!['name']}!',
+                              'url':
+                                  'https://sipzy.co.in/beverage/${bev['id']}',
+                            },
+                          ),
+                        );
+                      },
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: const BoxDecoration(
+                          color: Colors.black54,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.share_rounded,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          // Details section
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Name and flavor tags
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            name,
+                            style: const TextStyle(
+                              color: AppTheme.textPrimary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                            ),
+                          ),
+                          if (flavorTags.isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              children: flavorTags.take(2).map<Widget>((tag) {
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.glassLight,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: AppTheme.border),
+                                  ),
+                                  child: Text(
+                                    tag.toString(),
+                                    style: const TextStyle(
+                                      color: AppTheme.textSecondary,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      '₹$price',
+                      style: const TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20,
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 16),
+
+                // Ratings row
+                Row(
+                  children: [
+                    _buildCompactRating('SipZy', sipzyRating,
+                        Icons.star_rounded, AppTheme.primary),
+                    const SizedBox(width: 12),
+                    _buildCompactRating(
+                        'Customer', avgHuman, Icons.people, AppTheme.secondary,
+                        count: countHuman),
+                    const SizedBox(width: 12),
+                    _buildCompactRating(
+                        'Expert', avgExpert, Icons.verified, Colors.green),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompactRating(
+      String label, double rating, IconData icon, Color color,
+      {int? count}) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withOpacity(0.3)),
+        ),
+        child: Column(
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, color: color, size: 14),
+                const SizedBox(width: 4),
+                Text(
+                  rating.toStringAsFixed(1),
+                  style: TextStyle(
+                    color: color,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+            if (count != null) ...[
+              const SizedBox(height: 2),
+              Text(
+                '($count)',
+                style: TextStyle(
+                  color: color.withOpacity(0.7),
+                  fontSize: 9,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFoodMenuGalleryContent() {
+    final menuPhotos = restaurant!.foodMenuPics;
+
+    if (menuPhotos.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color: AppTheme.card,
+          borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+          border: Border.all(color: AppTheme.border),
+        ),
+        child: const Column(
+          children: [
+            Icon(Icons.restaurant_menu, size: 48, color: AppTheme.textTertiary),
+            SizedBox(height: 16),
+            Text(
+              'No food menu photos available',
+              style: TextStyle(color: AppTheme.textSecondary),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 1.2,
+      ),
+      itemCount: menuPhotos.length,
+      itemBuilder: (_, i) => ClipRRect(
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        child: Image.network(
+          menuPhotos[i],
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => Container(
+            color: AppTheme.glassLight,
+            child: const Icon(
+              Icons.restaurant_menu,
+              size: 48,
+              color: AppTheme.textTertiary,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1608,54 +2206,18 @@ class _RestaurantDetailState extends State<RestaurantDetail>
     );
   }
 
-  Widget _buildBeveragesGrid() {
-    if (filteredBeverages.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.search_rounded,
-                size: 64,
-                color: AppTheme.textTertiary,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'No beverages found',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 0.7,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-      ),
-      itemCount: filteredBeverages.length,
-      itemBuilder: (context, index) {
-        final bev = filteredBeverages[index];
-        return _buildBeverageCard(bev);
-      },
-    );
-  }
-
   Widget _buildBeverageCard(Map bev) {
     final photo = bev['photo'];
     final name = bev['name'] ?? 'Beverage';
     final price = bev['price'] ?? 0;
+    final flavorTags = bev['flavor_tags'] ?? bev['flavorTags'] as List? ?? [];
+    final sipzyRating =
+        (bev['sipzy_rating'] ?? bev['sipzyRating'] ?? 0).toDouble();
+
+    // ✅ FIXED: Extract ratings from nested structure
     final ratings = bev['ratings'] as Map<String, dynamic>? ?? {};
-    final avgHuman = ratings['avgHuman'] ?? ratings['avghuman'] ?? 0;
+    final avgHuman =
+        (bev['avg_rating_human'] ?? ratings['avgHuman'] ?? 0).toDouble();
 
     return InkWell(
       onTap: () => context.push('/beverage/${bev['id']}'),
@@ -1758,30 +2320,55 @@ class _RestaurantDetailState extends State<RestaurantDetail>
                       fontSize: 14,
                     ),
                   ),
+
+                  // ✅ FIXED: Show flavor tags
+                  if (flavorTags.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppTheme.glassLight,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        flavorTags.first.toString(),
+                        style: const TextStyle(
+                          color: AppTheme.textSecondary,
+                          fontSize: 10,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+
                   const SizedBox(height: 8),
+
+                  // ✅ FIXED: Show SipZy rating
                   Row(
                     children: [
                       const Icon(Icons.star_rounded,
                           color: AppTheme.primary, size: 14),
                       const SizedBox(width: 4),
                       Text(
-                        avgHuman.toStringAsFixed(1),
+                        sipzyRating.toStringAsFixed(1),
                         style: const TextStyle(
                           color: AppTheme.primary,
                           fontWeight: FontWeight.bold,
                           fontSize: 12,
                         ),
                       ),
+                      const Spacer(),
+                      Text(
+                        '₹$price',
+                        style: const TextStyle(
+                          color: AppTheme.textPrimary,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
                     ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '₹$price',
-                    style: const TextStyle(
-                      color: AppTheme.textPrimary,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
                   ),
                 ],
               ),

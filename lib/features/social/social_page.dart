@@ -2196,82 +2196,88 @@ class _SocialPageState extends State<SocialPage>
         border: Border.all(color: AppTheme.border),
       ),
       child: ListTile(
-        contentPadding: const EdgeInsets.all(16),
-        leading: ClipRRect(
-          borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-          child: image != null && image.toString().isNotEmpty
-              ? Image.network(image,
-                  width: 60,
-                  height: 60,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) =>
-                      _buildPlaceholderIcon(icon: Icons.restaurant))
-              : _buildPlaceholderIcon(icon: Icons.restaurant),
-        ),
-        title: Text(
-          bookmark['name'] ?? 'Restaurant',
-          style: const TextStyle(
-              color: AppTheme.textPrimary,
-              fontWeight: FontWeight.bold,
-              fontSize: 16),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                const Icon(Icons.location_on,
-                    size: 14, color: AppTheme.textSecondary),
-                const SizedBox(width: 4),
-                Text(
-                  bookmark['area'] ?? '',
-                  style: const TextStyle(
-                      color: AppTheme.textSecondary, fontSize: 13),
+          contentPadding: const EdgeInsets.all(16),
+          leading: ClipRRect(
+            borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+            child: image != null && image.toString().isNotEmpty
+                ? Image.network(image,
+                    width: 60,
+                    height: 60,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) =>
+                        _buildPlaceholderIcon(icon: Icons.restaurant))
+                : _buildPlaceholderIcon(icon: Icons.restaurant),
+          ),
+          title: Text(
+            bookmark['name'] ?? 'Restaurant',
+            style: const TextStyle(
+                color: AppTheme.textPrimary,
+                fontWeight: FontWeight.bold,
+                fontSize: 16),
+          ),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  const Icon(Icons.location_on,
+                      size: 14, color: AppTheme.textSecondary),
+                  const SizedBox(width: 4),
+                  Text(
+                    bookmark['area'] ?? '',
+                    style: const TextStyle(
+                        color: AppTheme.textSecondary, fontSize: 13),
+                  ),
+                ],
+              ),
+              if (cuisines.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: cuisines.take(3).map((cuisine) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                            color: AppTheme.primary.withOpacity(0.3)),
+                      ),
+                      child: Text(
+                        cuisine.toString(),
+                        style: const TextStyle(
+                          color: AppTheme.primary,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    );
+                  }).toList(),
                 ),
               ],
-            ),
-            if (cuisines.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: cuisines.take(3).map((cuisine) {
-                  return Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                      border:
-                          Border.all(color: AppTheme.primary.withOpacity(0.3)),
-                    ),
-                    child: Text(
-                      cuisine.toString(),
-                      style: const TextStyle(
-                        color: AppTheme.primary,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
             ],
-          ],
-        ),
-        trailing: IconButton(
-          icon: const Icon(Icons.bookmark, color: AppTheme.primary, size: 24),
-          onPressed: () => _confirmRemoveBookmark(
-              restaurantId?.toString() ?? bookmarkId?.toString() ?? '',
-              bookmark['name']),
-        ),
-        onTap: () {
-          if (restaurantId != null) {
-            context.push('/restaurant/$restaurantId');
-          }
-        },
-      ),
+          ),
+          trailing: IconButton(
+            icon: const Icon(Icons.bookmark, color: AppTheme.primary, size: 24),
+            onPressed: () => _confirmRemoveBookmark(
+                restaurantId?.toString() ?? bookmarkId?.toString() ?? '',
+                bookmark['name']),
+          ),
+          onTap: () {
+            final restaurantId = bookmark['restaurantId'] ??
+                bookmark['restaurantid'] ??
+                bookmark['restaurant_id'] ??
+                bookmark['id'];
+
+            if (restaurantId != null) {
+              context.push('/restaurant/${restaurantId.toString()}');
+            } else {
+              _showToast('Unable to open restaurant', isError: true);
+            }
+          }),
     );
   }
 
