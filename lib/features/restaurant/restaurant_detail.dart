@@ -1354,18 +1354,25 @@ class _RestaurantDetailState extends State<RestaurantDetail>
             Icon(Icons.local_bar_rounded,
                 size: 48, color: AppTheme.textTertiary),
             SizedBox(height: 16),
-            Text(
-              'No beverages available',
-              style: TextStyle(color: AppTheme.textSecondary),
-            ),
+            Text('No beverages available',
+                style: TextStyle(color: AppTheme.textSecondary)),
           ],
         ),
       );
     }
 
-    return Column(
-      children:
-          beverages.map((bev) => _buildDetailedBeverageCard(bev)).toList(),
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 0.62, // Adjusted for the new rating layout
+      ),
+      itemCount: beverages.length,
+      itemBuilder: (context, index) =>
+          _buildDetailedBeverageCard(beverages[index]),
     );
   }
 
@@ -1386,229 +1393,167 @@ class _RestaurantDetailState extends State<RestaurantDetail>
         (bev['avg_rating_expert'] ?? bev['ratings']?['avgExpert'] ?? 0)
             .toDouble();
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: AppTheme.card,
-        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-        border: Border.all(color: AppTheme.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Image with overlay buttons
-          Stack(
+    return GestureDetector(
+      onTap: () => context.push('/beverage/${bev['id']}'),
+      child: SizedBox(
+        height: 330,
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppTheme.card,
+            borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+            border: Border.all(color: AppTheme.border),
+          ),
+          child: Column(
             children: [
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(AppTheme.radiusLg),
+              // IMAGE (fixed)
+              SizedBox(
+                height: 140,
+                width: double.infinity,
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(AppTheme.radiusLg),
+                  ),
+                  child: photo != null && photo.toString().isNotEmpty
+                      ? Image.network(
+                          photo,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) =>
+                              _buildBeveragePlaceholder(height: 140),
+                        )
+                      : _buildBeveragePlaceholder(height: 140),
                 ),
-                child: photo != null && photo.toString().isNotEmpty
-                    ? Image.network(
-                        photo,
-                        height: 200,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) =>
-                            _buildBeveragePlaceholder(),
-                      )
-                    : _buildBeveragePlaceholder(),
               ),
-              Positioned(
-                top: 12,
-                right: 12,
-                child: Row(
-                  children: [
-                    GestureDetector(
-                      onTap: () => _showPhotoUpload(bev),
-                      child: Container(
-                        width: 36,
-                        height: 36,
-                        decoration: const BoxDecoration(
-                          color: Colors.black54,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.camera_alt_rounded,
-                          color: Colors.white,
-                          size: 18,
+
+              // DETAILS (fills remaining space safely)
+              // DETAILS
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    children: [
+                      // 🔒 NAME + TAG + PRICE (FIXED HEIGHT)
+                      SizedBox(
+                        height: 64, // ✅ accounts for 2-line name + tag
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    name,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: AppTheme.textPrimary,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  if (flavorTags.isNotEmpty)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.glassLight,
+                                        borderRadius: BorderRadius.circular(12),
+                                        border:
+                                            Border.all(color: AppTheme.border),
+                                      ),
+                                      child: Text(
+                                        flavorTags.first.toString(),
+                                        style: const TextStyle(
+                                          color: AppTheme.textSecondary,
+                                          fontSize: 10,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '₹$price',
+                              style: const TextStyle(
+                                color: AppTheme.textPrimary,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: () {
-                        showDialog(
-                          context: context,
-                          builder: (context) => ShareModal(
-                            onClose: () => Navigator.pop(context),
-                            item: {
-                              'title': name,
-                              'description':
-                                  'Check out this drink at ${restaurant!['name']}!',
-                              'url':
-                                  'https://sipzy.co.in/beverage/${bev['id']}',
-                            },
-                          ),
-                        );
-                      },
-                      child: Container(
-                        width: 36,
-                        height: 36,
-                        decoration: const BoxDecoration(
-                          color: Colors.black54,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.share_rounded,
-                          color: Colors.white,
-                          size: 18,
+
+                      const SizedBox(height: 8),
+
+                      // RATINGS (flexible, safe)
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            _buildRatingRow(
+                                'SipZy', sipzyRating, AppTheme.primary),
+                            _buildRatingRow(
+                              'Customer',
+                              avgHuman,
+                              AppTheme.secondary,
+                              count: countHuman,
+                            ),
+                            _buildRatingRow('Expert', avgExpert, Colors.green),
+                          ],
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
-
-          // Details section
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Name and flavor tags
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            name,
-                            style: const TextStyle(
-                              color: AppTheme.textPrimary,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18,
-                            ),
-                          ),
-                          if (flavorTags.isNotEmpty) ...[
-                            const SizedBox(height: 6),
-                            Wrap(
-                              spacing: 6,
-                              runSpacing: 6,
-                              children: flavorTags.take(2).map<Widget>((tag) {
-                                return Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.glassLight,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: AppTheme.border),
-                                  ),
-                                  child: Text(
-                                    tag.toString(),
-                                    style: const TextStyle(
-                                      color: AppTheme.textSecondary,
-                                      fontSize: 11,
-                                    ),
-                                  ),
-                                );
-                              }).toList(),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      '₹$price',
-                      style: const TextStyle(
-                        color: AppTheme.textPrimary,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 20,
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 16),
-
-                // Ratings row
-                Row(
-                  children: [
-                    _buildCompactRating('SipZy', sipzyRating,
-                        Icons.star_rounded, AppTheme.primary),
-                    const SizedBox(width: 12),
-                    _buildCompactRating(
-                        'Customer', avgHuman, Icons.people, AppTheme.secondary,
-                        count: countHuman),
-                    const SizedBox(width: 12),
-                    _buildCompactRating(
-                        'Expert', avgExpert, Icons.verified, Colors.green),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildCompactRating(
-      String label, double rating, IconData icon, Color color,
+  Widget _buildRatingRow(String label, double rating, Color color,
       {int? count}) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withOpacity(0.3)),
-        ),
-        child: Column(
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-              ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: AppTheme.textSecondary,
+              fontSize: 13,
             ),
-            const SizedBox(height: 4),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, color: color, size: 14),
-                const SizedBox(width: 4),
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.star, color: color, size: 16),
+              const SizedBox(width: 4),
+              Text(
+                rating.toStringAsFixed(1),
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+              if (count != null)
                 Text(
-                  rating.toStringAsFixed(1),
+                  ' ($count)',
                   style: TextStyle(
-                    color: color,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
+                    color: color.withOpacity(0.7),
+                    fontSize: 12,
                   ),
                 ),
-              ],
-            ),
-            if (count != null) ...[
-              const SizedBox(height: 2),
-              Text(
-                '($count)',
-                style: TextStyle(
-                  color: color.withOpacity(0.7),
-                  fontSize: 9,
-                ),
-              ),
             ],
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -2214,7 +2159,6 @@ class _RestaurantDetailState extends State<RestaurantDetail>
     final sipzyRating =
         (bev['sipzy_rating'] ?? bev['sipzyRating'] ?? 0).toDouble();
 
-    // ✅ FIXED: Extract ratings from nested structure
     final ratings = bev['ratings'] as Map<String, dynamic>? ?? {};
     final avgHuman =
         (bev['avg_rating_human'] ?? ratings['avgHuman'] ?? 0).toDouble();
@@ -2234,73 +2178,59 @@ class _RestaurantDetailState extends State<RestaurantDetail>
               children: [
                 ClipRRect(
                   borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(AppTheme.radiusLg),
-                  ),
+                      top: Radius.circular(AppTheme.radiusLg)),
                   child: photo != null && photo.toString().isNotEmpty
-                      ? Image.network(
-                          photo,
+                      ? Image.network(photo,
                           height: 120,
                           width: double.infinity,
                           fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return _buildBeveragePlaceholder();
-                          },
-                        )
+                          errorBuilder: (context, error, stackTrace) =>
+                              _buildBeveragePlaceholder())
                       : _buildBeveragePlaceholder(),
                 ),
+                // Camera icon - top left
+                Positioned(
+                  top: 8,
+                  left: 8,
+                  child: GestureDetector(
+                    onTap: () => _showPhotoUpload(bev),
+                    child: Container(
+                      width: 28,
+                      height: 28,
+                      decoration: const BoxDecoration(
+                          color: Colors.black54, shape: BoxShape.circle),
+                      child: const Icon(Icons.camera_alt_rounded,
+                          color: Colors.white, size: 14),
+                    ),
+                  ),
+                ),
+                // Share icon - top right
                 Positioned(
                   top: 8,
                   right: 8,
-                  child: Row(
-                    children: [
-                      GestureDetector(
-                        onTap: () => _showPhotoUpload(bev),
-                        child: Container(
-                          width: 28,
-                          height: 28,
-                          decoration: const BoxDecoration(
-                            color: Colors.black54,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.camera_alt_rounded,
-                            color: Colors.white,
-                            size: 14,
-                          ),
+                  child: GestureDetector(
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => ShareModal(
+                          onClose: () => Navigator.pop(context),
+                          item: {
+                            'title': bev['name'] ?? 'Beverage',
+                            'subtitle': 'at ${restaurant!['name']}',
+                            'price': bev['price'].toString(),
+                            'url': 'https://sipzy.co.in/beverage/${bev['id']}',
+                          },
                         ),
-                      ),
-                      const SizedBox(width: 6),
-                      GestureDetector(
-                        onTap: () {
-                          showDialog(
-                            context: context,
-                            builder: (context) => ShareModal(
-                              onClose: () => Navigator.pop(context),
-                              item: {
-                                'title': bev['name'] ?? 'Beverage',
-                                'description':
-                                    'Found this amazing drink at ${restaurant!['name']}!',
-                                'url':
-                                    'https://sipzy.co.in/beverage/${bev['id']}',
-                              },
-                            ),
-                          );
-                        },
-                        child: Container(
-                          width: 28,
-                          height: 28,
-                          decoration: const BoxDecoration(
-                            color: Colors.black54,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.share_rounded,
-                            color: Colors.white,
-                            size: 14,
-                          ),
-                        ),
-                      ),
-                    ],
+                      );
+                    },
+                    child: Container(
+                      width: 28,
+                      height: 28,
+                      decoration: const BoxDecoration(
+                          color: Colors.black54, shape: BoxShape.circle),
+                      child: const Icon(Icons.share_rounded,
+                          color: Colors.white, size: 14),
+                    ),
                   ),
                 ),
               ],
@@ -2321,7 +2251,6 @@ class _RestaurantDetailState extends State<RestaurantDetail>
                     ),
                   ),
 
-                  // ✅ FIXED: Show flavor tags
                   if (flavorTags.isNotEmpty) ...[
                     const SizedBox(height: 6),
                     Container(
@@ -2396,9 +2325,9 @@ class _RestaurantDetailState extends State<RestaurantDetail>
     );
   }
 
-  Widget _buildBeveragePlaceholder() {
+  Widget _buildBeveragePlaceholder({double height = 120}) {
     return Container(
-      height: 120,
+      height: height,
       color: AppTheme.glassLight,
       child: const Column(
         mainAxisAlignment: MainAxisAlignment.center,

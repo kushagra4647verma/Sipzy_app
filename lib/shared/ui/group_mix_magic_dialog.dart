@@ -30,23 +30,13 @@ class _GroupMixMagicDialogState extends State<GroupMixMagicDialog> {
     final set = <String>{};
 
     for (final b in widget.beverages) {
-      final tags = (b['tags'] ?? '').toString().toLowerCase();
-      final category = (b['category'] ?? '').toString().toLowerCase();
-      final baseDrink =
-          (b['base_drink'] ?? b['baseDrink'] ?? '').toString().toLowerCase();
+      final baseType = (b['base_type'] ?? b['baseType'] ?? '').toString();
 
-      for (final s in [
-        'vodka',
-        'whisky',
-        'rum',
-        'gin',
-        'tequila',
-        'wine',
-        'beer'
-      ]) {
-        if (tags.contains(s) || category.contains(s) || baseDrink.contains(s)) {
-          set.add(s[0].toUpperCase() + s.substring(1));
-        }
+      if (baseType.isNotEmpty) {
+        // Capitalize first letter
+        final normalized =
+            baseType[0].toUpperCase() + baseType.substring(1).toLowerCase();
+        set.add(normalized);
       }
     }
 
@@ -67,15 +57,11 @@ class _GroupMixMagicDialogState extends State<GroupMixMagicDialog> {
       final base = _baseDrinks[i];
 
       final filtered = widget.beverages.where((b) {
-        final tags = (b['tags'] ?? '').toString().toLowerCase();
-        final category = (b['category'] ?? '').toString().toLowerCase();
-        final baseDrink =
-            (b['base_drink'] ?? b['baseDrink'] ?? '').toString().toLowerCase();
+        final baseType =
+            (b['base_type'] ?? b['baseType'] ?? '').toString().toLowerCase();
 
         if (base == null) return true;
-        return tags.contains(base.toLowerCase()) ||
-            category.contains(base.toLowerCase()) ||
-            baseDrink.contains(base.toLowerCase());
+        return baseType == base.toLowerCase();
       }).toList();
 
       if (filtered.isEmpty) continue;
@@ -83,10 +69,7 @@ class _GroupMixMagicDialogState extends State<GroupMixMagicDialog> {
       final drink = filtered[random.nextInt(filtered.length)];
 
       // Get actual rating
-      final ratings = drink['ratings'] as Map<String, dynamic>? ?? {};
-      final avgRating = ratings['avgHuman'] ??
-          ratings['avghuman'] ??
-          (drink['sipzy_rating'] ?? 0);
+      final avgRating = (drink['sipzy_rating'] ?? 0).toDouble();
 
       _results.add({
         'participant': 'Participant ${i + 1}',
@@ -102,19 +85,17 @@ class _GroupMixMagicDialogState extends State<GroupMixMagicDialog> {
   List<String> _extractTags(Map beverage) {
     final tags = <String>[];
 
-    // Extract from category
-    final category = (beverage['category'] ?? '').toString().toLowerCase();
-    if (category.contains('sweet')) tags.add('#Sweet');
-    if (category.contains('fruity')) tags.add('#Fruity');
-    if (category.contains('sour')) tags.add('#Sour');
-    if (category.contains('bitter')) tags.add('#Bitter');
+    // Extract from flavor_tags
+    final flavorTags = beverage['flavor_tags'] as List? ?? [];
+    if (flavorTags.isNotEmpty) {
+      tags.add('#${flavorTags.first}');
+    }
 
-    // Extract from base drink
-    final baseDrink =
-        (beverage['base_drink'] ?? beverage['baseDrink'] ?? '').toString();
-    if (baseDrink.isNotEmpty) {
-      tags.add(
-          '#${baseDrink[0].toUpperCase()}${baseDrink.substring(1).toLowerCase()}');
+    // Extract from base_type
+    final baseType =
+        (beverage['base_type'] ?? beverage['baseType'] ?? '').toString();
+    if (baseType.isNotEmpty) {
+      tags.add('#$baseType');
     }
 
     return tags.take(2).toList();
