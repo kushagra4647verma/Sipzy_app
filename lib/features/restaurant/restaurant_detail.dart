@@ -1368,7 +1368,7 @@ class _RestaurantDetailState extends State<RestaurantDetail>
         crossAxisCount: 2,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
-        childAspectRatio: 0.62, // Adjusted for the new rating layout
+        childAspectRatio: 0.58, // Adjusted for the new rating layout
       ),
       itemCount: beverages.length,
       itemBuilder: (context, index) =>
@@ -1395,122 +1395,129 @@ class _RestaurantDetailState extends State<RestaurantDetail>
 
     return GestureDetector(
       onTap: () => context.push('/beverage/${bev['id']}'),
-      child: SizedBox(
-        height: 330,
-        child: Container(
-          decoration: BoxDecoration(
-            color: AppTheme.card,
-            borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-            border: Border.all(color: AppTheme.border),
-          ),
-          child: Column(
-            children: [
-              // IMAGE (fixed)
-              SizedBox(
-                height: 140,
-                width: double.infinity,
-                child: ClipRRect(
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(AppTheme.radiusLg),
-                  ),
-                  child: photo != null && photo.toString().isNotEmpty
-                      ? Image.network(
-                          photo,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) =>
-                              _buildBeveragePlaceholder(height: 140),
-                        )
-                      : _buildBeveragePlaceholder(height: 140),
-                ),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: AppTheme.card,
+          borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+          border: Border.all(color: AppTheme.border),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // IMAGE
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(AppTheme.radiusLg),
               ),
+              child: photo != null && photo.toString().isNotEmpty
+                  ? Image.network(
+                      photo,
+                      height: 140,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) =>
+                          _buildBeveragePlaceholder(height: 140),
+                    )
+                  : _buildBeveragePlaceholder(height: 140),
+            ),
 
-              // DETAILS (fills remaining space safely)
-              // DETAILS
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
+            // DETAILS
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // 🔒 NAME + TAG + PRICE (FIXED HEIGHT)
-                      SizedBox(
-                        height: 64, // ✅ accounts for 2-line name + tag
-                        child: Row(
+                      Expanded(
+                        child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    name,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: AppTheme.textPrimary,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 15,
-                                    ),
+                            // ✅ FIXED: Set minimum height to always accommodate 2 lines
+                            SizedBox(
+                              height:
+                                  40, // ✅ Height for 2 lines (15px font × 2 lines × 1.3 line height ≈ 40px)
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  name,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: AppTheme.textPrimary,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                    height: 1.3, // ✅ Consistent line height
                                   ),
-                                  const SizedBox(height: 4),
-                                  if (flavorTags.isNotEmpty)
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.glassLight,
-                                        borderRadius: BorderRadius.circular(12),
-                                        border:
-                                            Border.all(color: AppTheme.border),
-                                      ),
-                                      child: Text(
-                                        flavorTags.first.toString(),
-                                        style: const TextStyle(
-                                          color: AppTheme.textSecondary,
-                                          fontSize: 10,
-                                        ),
-                                      ),
-                                    ),
-                                ],
+                                ),
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            Text(
-                              '₹$price',
-                              style: const TextStyle(
-                                color: AppTheme.textPrimary,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
+
+                            const SizedBox(height: 15),
+
+                            SizedBox(
+                              height:
+                                  24, // ✅ Height for tag (or empty space if no tag)
+                              child: flavorTags.isNotEmpty
+                                  ? Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.glassLight,
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                          border: Border.all(
+                                              color: AppTheme.border),
+                                        ),
+                                        child: Text(
+                                          flavorTags.first.toString(),
+                                          style: const TextStyle(
+                                            color: AppTheme.textSecondary,
+                                            fontSize: 10,
+                                          ),
+                                        ),
+                                      ),
+                                    )
+                                  : const SizedBox
+                                      .shrink(), // Empty space if no tag
                             ),
                           ],
                         ),
                       ),
-
-                      const SizedBox(height: 8),
-
-                      // RATINGS (flexible, safe)
-                      Expanded(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            _buildRatingRow(
-                                'SipZy', sipzyRating, AppTheme.primary),
-                            _buildRatingRow(
-                              'Customer',
-                              avgHuman,
-                              AppTheme.secondary,
-                              count: countHuman,
-                            ),
-                            _buildRatingRow('Expert', avgExpert, Colors.green),
-                          ],
+                      const SizedBox(width: 8),
+                      Text(
+                        '₹$price',
+                        style: const TextStyle(
+                          color: AppTheme.textPrimary,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
                         ),
                       ),
                     ],
                   ),
-                ),
+
+                  const SizedBox(height: 8),
+
+                  // RATINGS - Now these will align perfectly across all cards
+                  _buildRatingRow('SipZy', sipzyRating, AppTheme.primary),
+                  _buildRatingRow(
+                    'Customer',
+                    avgHuman,
+                    AppTheme.secondary,
+                    count: countHuman,
+                  ),
+                  _buildRatingRow('Expert', avgExpert, Colors.green),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -2325,9 +2332,9 @@ class _RestaurantDetailState extends State<RestaurantDetail>
     );
   }
 
-  Widget _buildBeveragePlaceholder({double height = 120}) {
+  Widget _buildBeveragePlaceholder({double? height}) {
     return Container(
-      height: height,
+      height: height ?? 100, // ✅ Default to 100 instead of 120
       color: AppTheme.glassLight,
       child: const Column(
         mainAxisAlignment: MainAxisAlignment.center,
