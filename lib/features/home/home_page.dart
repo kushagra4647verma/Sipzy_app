@@ -273,11 +273,12 @@ class _HomePageState extends State<HomePage> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(msg),
-        backgroundColor: isError ? Colors.red.shade600 : AppTheme.card,
+        content: Text(msg, style: const TextStyle(color: Colors.white)),
+        backgroundColor:
+            isError ? Colors.red.shade600 : const Color(0xFF2A2A2A),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+          borderRadius: BorderRadius.circular(12),
         ),
         margin: const EdgeInsets.all(16),
         duration: const Duration(seconds: 2),
@@ -364,10 +365,7 @@ class _HomePageState extends State<HomePage> {
   void _handleSearchChanged(String query) {
     setState(() => searchQuery = query);
 
-    // Cancel previous timer
     _searchDebounce?.cancel();
-
-    // Create new timer
     _searchDebounce = Timer(const Duration(milliseconds: 500), () {
       if (mounted) {
         fetchRestaurants();

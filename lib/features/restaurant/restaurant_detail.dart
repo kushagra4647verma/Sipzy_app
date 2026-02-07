@@ -33,6 +33,7 @@ class _RestaurantDetailState extends State<RestaurantDetail>
   final _beverageService = BeverageService();
   final _eventService = EventService();
   final _userService = UserService();
+
   String _menuTab = 'beverages';
   Restaurant? restaurant;
   List<String> _userUploadedPhotos = [];
@@ -291,13 +292,15 @@ class _RestaurantDetailState extends State<RestaurantDetail>
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(msg),
-        backgroundColor: isError ? Colors.red.shade600 : AppTheme.card,
+        content: Text(msg, style: const TextStyle(color: Colors.white)),
+        backgroundColor:
+            isError ? Colors.red.shade600 : const Color(0xFF2A2A2A),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+          borderRadius: BorderRadius.circular(12),
         ),
         margin: const EdgeInsets.all(16),
+        duration: const Duration(seconds: 2),
       ),
     );
   }
@@ -1582,10 +1585,8 @@ class _RestaurantDetailState extends State<RestaurantDetail>
           children: [
             Icon(Icons.restaurant_menu, size: 48, color: AppTheme.textTertiary),
             SizedBox(height: 16),
-            Text(
-              'No food menu photos available',
-              style: TextStyle(color: AppTheme.textSecondary),
-            ),
+            Text('No food menu photos available',
+                style: TextStyle(color: AppTheme.textSecondary)),
           ],
         ),
       );
@@ -1601,17 +1602,17 @@ class _RestaurantDetailState extends State<RestaurantDetail>
         childAspectRatio: 1.2,
       ),
       itemCount: menuPhotos.length,
-      itemBuilder: (_, i) => ClipRRect(
-        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-        child: Image.network(
-          menuPhotos[i],
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => Container(
-            color: AppTheme.glassLight,
-            child: const Icon(
-              Icons.restaurant_menu,
-              size: 48,
-              color: AppTheme.textTertiary,
+      itemBuilder: (_, i) => GestureDetector(
+        onTap: () => _showFullMenuGallery(startIndex: i), // ✅ Added tap
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+          child: Image.network(
+            menuPhotos[i],
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => Container(
+              color: AppTheme.glassLight,
+              child: const Icon(Icons.restaurant_menu,
+                  size: 48, color: AppTheme.textTertiary),
             ),
           ),
         ),
@@ -1798,7 +1799,7 @@ class _RestaurantDetailState extends State<RestaurantDetail>
     );
   }
 
-  void _showFullMenuGallery() {
+  void _showFullMenuGallery({int startIndex = 0}) {
     final menuPhotos = restaurant!.foodMenuPics;
 
     showDialog(
@@ -1813,14 +1814,11 @@ class _RestaurantDetailState extends State<RestaurantDetail>
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Food Menu',
-                    style: TextStyle(
-                      color: AppTheme.textPrimary,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  const Text('Food Menu',
+                      style: TextStyle(
+                          color: AppTheme.textPrimary,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold)),
                   IconButton(
                     icon: const Icon(Icons.close, color: AppTheme.textPrimary),
                     onPressed: () => Navigator.pop(context),
@@ -1829,20 +1827,11 @@ class _RestaurantDetailState extends State<RestaurantDetail>
               ),
             ),
             Expanded(
-              child: GridView.builder(
-                padding: const EdgeInsets.all(16),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 8,
-                  mainAxisSpacing: 8,
-                ),
+              child: PageView.builder(
+                controller: PageController(initialPage: startIndex),
                 itemCount: menuPhotos.length,
-                itemBuilder: (_, i) => ClipRRect(
-                  borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-                  child: Image.network(
-                    menuPhotos[i],
-                    fit: BoxFit.cover,
-                  ),
+                itemBuilder: (_, i) => InteractiveViewer(
+                  child: Image.network(menuPhotos[i], fit: BoxFit.contain),
                 ),
               ),
             ),
