@@ -308,57 +308,7 @@ class _RestaurantDetailState extends State<RestaurantDetail>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Contact & Links',
-            style: TextStyle(
-              color: AppTheme.textPrimary,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Phone
-          if (restaurant!.phone.isNotEmpty)
-            _buildContactItem(
-              Icons.phone,
-              restaurant!.phone,
-              () => callRestaurant(),
-            ),
-
-          // Email
-          if (restaurant!.contactEmail != null)
-            _buildContactItem(
-              Icons.email,
-              restaurant!.contactEmail!,
-              () async {
-                final uri = Uri.parse('mailto:${restaurant!.contactEmail}');
-                if (await canLaunchUrl(uri)) {
-                  await launchUrl(uri);
-                }
-              },
-            ),
-
-          // Website
-          if (restaurant!.websiteUrl != null)
-            _buildContactItem(
-              Icons.language,
-              restaurant!.websiteUrl!,
-              () async {
-                var url = restaurant!.websiteUrl!;
-                if (!url.startsWith('http')) {
-                  url = 'https://$url';
-                }
-                final uri = Uri.parse(url);
-                if (await canLaunchUrl(uri)) {
-                  await launchUrl(uri,
-                      mode: LaunchMode.externalApplication); // ✅ Added mode
-                }
-              },
-            ),
-
           // Social Media
-          const SizedBox(height: 16),
           const Text(
             'Follow Us',
             style: TextStyle(
@@ -1406,21 +1356,82 @@ class _RestaurantDetailState extends State<RestaurantDetail>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // IMAGE
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(AppTheme.radiusLg),
-              ),
-              child: photo != null && photo.toString().isNotEmpty
-                  ? Image.network(
-                      photo,
-                      height: 140,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) =>
-                          _buildBeveragePlaceholder(height: 140),
-                    )
-                  : _buildBeveragePlaceholder(height: 140),
+            // IMAGE WITH OVERLAY ICONS
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(AppTheme.radiusLg),
+                  ),
+                  child: photo != null && photo.toString().isNotEmpty
+                      ? Image.network(
+                          photo,
+                          height: 140,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) =>
+                              _buildBeveragePlaceholder(height: 140),
+                        )
+                      : _buildBeveragePlaceholder(height: 140),
+                ),
+
+                // Camera icon - top left
+                Positioned(
+                  top: 8,
+                  left: 8,
+                  child: GestureDetector(
+                    onTap: () => _showPhotoUpload(bev),
+                    child: Container(
+                      width: 28,
+                      height: 28,
+                      decoration: const BoxDecoration(
+                        color: Colors.black54,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.camera_alt_rounded,
+                        color: Colors.white,
+                        size: 14,
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Share icon - top right
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: GestureDetector(
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => ShareModal(
+                          onClose: () => Navigator.pop(context),
+                          item: {
+                            'title': bev['name'] ?? 'Beverage',
+                            'subtitle': 'at ${restaurant!['name']}',
+                            'price': bev['price'].toString(),
+                            'url': 'https://sipzy.co.in/beverage/${bev['id']}',
+                          },
+                        ),
+                      );
+                    },
+                    child: Container(
+                      width: 28,
+                      height: 28,
+                      decoration: const BoxDecoration(
+                        color: Colors.black54,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.share_rounded,
+                        color: Colors.white,
+                        size: 14,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
 
             // DETAILS
@@ -1438,10 +1449,8 @@ class _RestaurantDetailState extends State<RestaurantDetail>
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // ✅ FIXED: Set minimum height to always accommodate 2 lines
                             SizedBox(
-                              height:
-                                  40, // ✅ Height for 2 lines (15px font × 2 lines × 1.3 line height ≈ 40px)
+                              height: 40,
                               child: Align(
                                 alignment: Alignment.centerLeft,
                                 child: Text(
@@ -1452,17 +1461,14 @@ class _RestaurantDetailState extends State<RestaurantDetail>
                                     color: AppTheme.textPrimary,
                                     fontWeight: FontWeight.bold,
                                     fontSize: 15,
-                                    height: 1.3, // ✅ Consistent line height
+                                    height: 1.3,
                                   ),
                                 ),
                               ),
                             ),
-
-                            const SizedBox(height: 15),
-
+                            const SizedBox(height: 5),
                             SizedBox(
-                              height:
-                                  24, // ✅ Height for tag (or empty space if no tag)
+                              height: 20,
                               child: flavorTags.isNotEmpty
                                   ? Align(
                                       alignment: Alignment.centerLeft,
@@ -1480,18 +1486,17 @@ class _RestaurantDetailState extends State<RestaurantDetail>
                                           flavorTags.first.toString(),
                                           style: const TextStyle(
                                             color: AppTheme.textSecondary,
-                                            fontSize: 10,
+                                            fontSize: 8,
                                           ),
                                         ),
                                       ),
                                     )
-                                  : const SizedBox
-                                      .shrink(), // Empty space if no tag
+                                  : const SizedBox.shrink(),
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
                       Text(
                         '₹$price',
                         style: const TextStyle(
@@ -1502,10 +1507,7 @@ class _RestaurantDetailState extends State<RestaurantDetail>
                       ),
                     ],
                   ),
-
-                  const SizedBox(height: 8),
-
-                  // RATINGS - Now these will align perfectly across all cards
+                  const SizedBox(height: 4),
                   _buildRatingRow('SipZy', sipzyRating, AppTheme.primary),
                   _buildRatingRow(
                     'Customer',
@@ -1526,7 +1528,7 @@ class _RestaurantDetailState extends State<RestaurantDetail>
   Widget _buildRatingRow(String label, double rating, Color color,
       {int? count}) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.only(bottom: 3),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -1618,7 +1620,6 @@ class _RestaurantDetailState extends State<RestaurantDetail>
   }
 
   Widget _buildPhotoGallerySection() {
-    // ✅ FIXED: Only show restaurant gallery + user-uploaded beverage photos
     final restaurantPhotos = restaurant!.gallery;
     final allPhotos = [...restaurantPhotos, ..._userUploadedPhotos];
 
@@ -1640,7 +1641,6 @@ class _RestaurantDetailState extends State<RestaurantDetail>
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              // ✅ Show count of user-uploaded beverage photos
               if (_userUploadedPhotos.isNotEmpty)
                 Container(
                   padding:
