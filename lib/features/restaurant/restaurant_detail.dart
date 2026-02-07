@@ -878,7 +878,9 @@ class _RestaurantDetailState extends State<RestaurantDetail>
     if (hours.isEmpty) return false;
 
     final now = DateTime.now();
-    final weekdays = [
+
+    // ✅ CRITICAL FIX: Support both full and abbreviated day names
+    final weekdaysFull = [
       'Monday',
       'Tuesday',
       'Wednesday',
@@ -887,50 +889,81 @@ class _RestaurantDetailState extends State<RestaurantDetail>
       'Saturday',
       'Sunday'
     ];
-    final todayName = weekdays[now.weekday - 1];
+    final weekdaysShort = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
+    final todayFullName = weekdaysFull[now.weekday - 1];
+    final todayShortName = weekdaysShort[now.weekday - 1];
+
+    print(
+        '📅 Today is: $todayFullName ($todayShortName) - ${now.hour}:${now.minute}');
+
+    // Try to find today's schedule with either full or short name
     final todaySchedule = hours.firstWhere(
-      (h) => h['day'] == todayName,
+      (h) => h['day'] == todayFullName || h['day'] == todayShortName,
       orElse: () => null,
     );
 
-    if (todaySchedule == null || todaySchedule['isClosed'] == true) {
+    if (todaySchedule == null) {
+      print('⚠️ No schedule found for today');
+      return false;
+    }
+
+    print('📋 Today\'s schedule: $todaySchedule');
+
+    if (todaySchedule['isClosed'] == true) {
+      print('🚫 Restaurant is closed today');
       return false;
     }
 
     final timeSlots = todaySchedule['timeSlots'] as List? ?? [];
-    if (timeSlots.isEmpty) return false;
+    if (timeSlots.isEmpty) {
+      print('⚠️ No time slots for today');
+      return false;
+    }
 
     final currentTime = TimeOfDay.now();
     final currentMinutes = currentTime.hour * 60 + currentTime.minute;
+
+    print(
+        '🕐 Current time in minutes: $currentMinutes (${currentTime.hour}:${currentTime.minute})');
 
     for (final slot in timeSlots) {
       final openTime = _parseTime(slot['openTime']);
       final closeTime = _parseTime(slot['closeTime']);
 
-      if (openTime == null || closeTime == null) continue;
+      if (openTime == null || closeTime == null) {
+        print('⚠️ Could not parse time slot: $slot');
+        continue;
+      }
 
-      // Handle closing past midnight
+      print(
+          '🕐 Time slot: ${slot['openTime']} ($openTime min) - ${slot['closeTime']} ($closeTime min)');
+
+      // Handle closing past midnight (e.g., 12 PM to 2 AM next day)
       if (closeTime < openTime) {
-        // e.g., 12 PM to 1 AM next day
         if (currentMinutes >= openTime || currentMinutes <= closeTime) {
+          print('✅ OPEN (spans midnight)');
           return true;
         }
       } else {
         if (currentMinutes >= openTime && currentMinutes <= closeTime) {
+          print('✅ OPEN');
           return true;
         }
       }
     }
 
+    print('🚫 CLOSED (outside time slots)');
     return false;
   }
 
   int? _parseTime(String time) {
     try {
-      // Handle formats like "12 Noon", "1:00 AM", "11:30 PM", "12 Midnight"
       time = time.trim().toLowerCase();
 
+      print('🔍 Parsing time: "$time"');
+
+      // Handle special cases
       if (time.contains('noon')) {
         return 12 * 60; // 12:00 PM
       }
@@ -938,26 +971,35 @@ class _RestaurantDetailState extends State<RestaurantDetail>
         return 0; // 00:00
       }
 
-      final parts = time.split(' ');
-      if (parts.length < 2) return null;
+      // ✅ CRITICAL FIX: Handle both 12-hour and 24-hour formats
+      // Examples: "09:00", "9:00", "09:00 AM", "2:00 PM", "14:00"
 
-      final timePart = parts[0];
-      final period = parts[1]; // AM or PM
+      // Remove any AM/PM indicator and extra spaces
+      final cleanTime = time.replaceAll(RegExp(r'\s*(am|pm)\s*'), '').trim();
 
-      final timeParts = timePart.split(':');
-      int hour = int.parse(timeParts[0]);
-      int minute = timeParts.length > 1 ? int.parse(timeParts[1]) : 0;
-
-      // Convert to 24-hour format
-      if (period.contains('pm') && hour != 12) {
-        hour += 12;
-      } else if (period.contains('am') && hour == 12) {
-        hour = 0;
+      final parts = cleanTime.split(':');
+      if (parts.isEmpty) {
+        print('❌ Invalid time format: $time');
+        return null;
       }
 
-      return hour * 60 + minute;
+      int hour = int.parse(parts[0]);
+      int minute = parts.length > 1 ? int.parse(parts[1]) : 0;
+
+      // ✅ If original time had AM/PM, convert to 24-hour
+      if (time.contains('pm') && hour != 12) {
+        hour += 12;
+      } else if (time.contains('am') && hour == 12) {
+        hour = 0;
+      }
+      // ✅ If no AM/PM and hour is already 24-hour format, use as-is
+
+      final totalMinutes = hour * 60 + minute;
+      print('✅ Parsed to: $hour:$minute ($totalMinutes minutes)');
+
+      return totalMinutes;
     } catch (e) {
-      print('Error parsing time: $time - $e');
+      print('❌ Error parsing time "$time": $e');
       return null;
     }
   }
@@ -965,7 +1007,8 @@ class _RestaurantDetailState extends State<RestaurantDetail>
   void _showOpeningHoursSheet() {
     final hours = restaurant!.openingHours;
     final now = DateTime.now();
-    final weekdays = [
+
+    final weekdaysFull = [
       'Monday',
       'Tuesday',
       'Wednesday',
@@ -974,7 +1017,10 @@ class _RestaurantDetailState extends State<RestaurantDetail>
       'Saturday',
       'Sunday'
     ];
-    final todayName = weekdays[now.weekday - 1];
+    final weekdaysShort = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+    final todayFullName = weekdaysFull[now.weekday - 1];
+    final todayShortName = weekdaysShort[now.weekday - 1];
 
     showModalBottomSheet(
       context: context,
@@ -1002,7 +1048,8 @@ class _RestaurantDetailState extends State<RestaurantDetail>
               final day = daySchedule['day'] ?? '';
               final isClosed = daySchedule['isClosed'] ?? false;
               final timeSlots = daySchedule['timeSlots'] as List? ?? [];
-              final isToday = day == todayName;
+
+              final isToday = day == todayFullName || day == todayShortName;
 
               return Container(
                 padding: const EdgeInsets.symmetric(vertical: 12),

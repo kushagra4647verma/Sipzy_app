@@ -120,18 +120,24 @@ class Restaurant {
       if (value == null) return [];
 
       try {
-        // Format 1: Already a List (from /restaurants?city=Bang)
         if (value is List) {
           print('✅ Opening hours already parsed as List');
           return value;
         }
 
-        // Format 2: JSON String (from /restaurants/{id})
         if (value is String) {
           if (value.isEmpty) return [];
+          String cleanValue = value;
+          if (cleanValue.startsWith('"') && cleanValue.endsWith('"')) {
+            cleanValue = cleanValue.substring(1, cleanValue.length - 1);
+          }
+
+          // Unescape backslashes
+          cleanValue = cleanValue.replaceAll(r'\"', '"');
+          cleanValue = cleanValue.replaceAll(r'\\', r'\');
 
           try {
-            final decoded = jsonDecode(value);
+            final decoded = jsonDecode(cleanValue);
             if (decoded is List) {
               print('✅ Successfully parsed opening hours JSON string');
               return decoded;
@@ -142,7 +148,7 @@ class Restaurant {
             }
           } catch (e) {
             print('❌ Error decoding opening hours JSON: $e');
-            print('Opening hours value: $value');
+            print('Opening hours value: $cleanValue');
             return [];
           }
         }

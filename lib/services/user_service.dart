@@ -364,19 +364,46 @@ class UserService {
   }
 
   /// POST /api/bookmarks/post_bookmark/:restaurantId
+  /// ⚠️ WARNING: This endpoint TOGGLES bookmarks (add/remove)
   Future<bool> addBookmark(String restaurantId) async {
     try {
       final headers = await _getHeaders();
+
+      print('🔖 === BOOKMARK API CALL ===');
+      print('🔖 URL: $baseUrl/bookmarks/post_bookmark/$restaurantId');
+      print('🔖 Headers: $headers');
+
       final response = await http
           .post(
             Uri.parse('$baseUrl/bookmarks/post_bookmark/$restaurantId'),
             headers: headers,
+            // ✅ CRITICAL: Send empty body to prevent data corruption
+            body: jsonEncode({}),
           )
           .timeout(EnvConfig.requestTimeout);
 
-      return response.statusCode == 200 || response.statusCode == 201;
-    } catch (e) {
+      print('🔖 Response status: ${response.statusCode}');
+      print('🔖 Response body: ${response.body}');
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        // ✅ Verify the response doesn't indicate data corruption
+        try {
+          final responseData = jsonDecode(response.body);
+          if (responseData['data'] != null &&
+              responseData['data']['name'] == 'Unknown Restaurant') {
+            print(
+                '⚠️ WARNING: Backend returned "Unknown Restaurant" - possible data corruption');
+          }
+        } catch (_) {
+          // Ignore parsing errors
+        }
+        return true;
+      }
+
+      return false;
+    } catch (e, stackTrace) {
       print('❌ Add bookmark error: $e');
+      print('Stack trace: $stackTrace');
       return false;
     }
   }

@@ -77,9 +77,11 @@ class RestaurantService {
     double? userLon,
   ) {
     try {
+      // ✅ IMPORTANT: Don't modify the original restaurant object if location parsing fails
       if (restaurant['location'] != null) {
         final coords = _parseLocationGeometry(restaurant['location']);
         if (coords != null) {
+          // Only set if successfully parsed
           restaurant['lat'] = coords['lat'];
           restaurant['lon'] = coords['lon'];
           restaurant['latitude'] = coords['lat'];
@@ -108,19 +110,23 @@ class RestaurantService {
         );
 
         restaurant['distance'] = distance;
-        print(
-            '✅ Calculated distance for ${restaurant['name']}: ${distance.toStringAsFixed(2)} km');
+
+        // ✅ Don't log if name is missing - this indicates data corruption
+        if (restaurant['name'] != null &&
+            restaurant['name'].toString().isNotEmpty) {
+          print(
+              '✅ Calculated distance for ${restaurant['name']}: ${distance.toStringAsFixed(2)} km');
+        } else {
+          print('⚠️ Restaurant missing name field - possible data corruption');
+        }
       } else {
         restaurant['distance'] = 0.0;
-        print(
-            '⚠️ Missing coordinates for ${restaurant['name']} - lat: $lat, lon: $lon, userLat: $userLat, userLon: $userLon');
       }
     } catch (e) {
-      print('❌ Error calculating distance for ${restaurant['name']}: $e');
+      print('❌ Error calculating distance: $e');
       restaurant['distance'] = 0.0;
     }
   }
-
   // ============ RESTAURANTS CRUD ============
 
   /// GET /api/restaurants

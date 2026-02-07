@@ -237,7 +237,6 @@ class _BeverageDetailPageState extends State<BeverageDetailPage> {
   }
 
   void _showExpertRatings() async {
-    // Fetch expert ratings from API
     final ratingsData = await _beverageService.getExpertRatings(
       widget.beverageId,
       page: 1,
@@ -246,7 +245,6 @@ class _BeverageDetailPageState extends State<BeverageDetailPage> {
 
     if (!mounted) return;
 
-    // Extract ratings array from response
     final expertRatings = ratingsData?['ratings'] as List? ?? [];
     final pagination =
         ratingsData?['pagination'] as Map<String, dynamic>? ?? {};
@@ -255,6 +253,15 @@ class _BeverageDetailPageState extends State<BeverageDetailPage> {
       _toast('No expert ratings yet');
       return;
     }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Scrollable.ensureVisible(
+        context,
+        alignment: 0.0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    });
 
     showDialog(
       context: context,
@@ -549,7 +556,6 @@ class _BeverageDetailPageState extends State<BeverageDetailPage> {
   }
 
   void _showCustomerReviews() async {
-    // Fetch actual reviews from API with pagination
     final reviewsData = await _beverageService.getBeverageRatings(
       widget.beverageId,
       page: 1,
@@ -558,7 +564,6 @@ class _BeverageDetailPageState extends State<BeverageDetailPage> {
 
     if (!mounted) return;
 
-    // ✅ FIXED: Extract ratings array from new response structure
     final ratingsData = reviewsData?['ratings'] as List? ?? [];
     final pagination =
         reviewsData?['pagination'] as Map<String, dynamic>? ?? {};
@@ -568,6 +573,14 @@ class _BeverageDetailPageState extends State<BeverageDetailPage> {
       return;
     }
 
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Scrollable.ensureVisible(
+        context,
+        alignment: 0.0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    });
     showDialog(
       context: context,
       builder: (context) => Dialog(
