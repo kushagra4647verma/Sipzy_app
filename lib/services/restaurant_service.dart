@@ -134,7 +134,6 @@ class RestaurantService {
     String? city,
     double? lat,
     double? lon,
-    double? radius,
     String? search,
     String? cuisine,
     double? minRating,
@@ -142,59 +141,53 @@ class RestaurantService {
     String? sortBy,
   }) async {
     try {
-      final headers = await _getHeaders();
-      final params = <String, String>{};
+      final queryParams = <String, String>{};
 
-      if (city != null) params['city'] = city;
-      if (lat != null) params['lat'] = lat.toString();
-      if (lon != null) params['lon'] = lon.toString();
-      if (radius != null) params['radius'] = radius.toString();
-      if (search != null) params['search'] = search;
-      if (cuisine != null) params['cuisine'] = cuisine;
-      if (minRating != null) params['min_rating'] = minRating.toString();
-      if (maxDistance != null) params['max_distance'] = maxDistance.toString();
-      if (sortBy != null) params['sort_by'] = sortBy;
+      if (city != null && city.isNotEmpty) queryParams['city'] = city;
+      if (lat != null) queryParams['lat'] = lat.toString();
+      if (lon != null) queryParams['lon'] = lon.toString();
+      if (search != null && search.isNotEmpty) queryParams['search'] = search;
+      if (cuisine != null && cuisine.isNotEmpty)
+        queryParams['cuisine'] = cuisine;
+      if (minRating != null && minRating > 0)
+        queryParams['minRating'] = minRating.toString();
+      if (maxDistance != null && maxDistance < 100)
+        queryParams['maxDistance'] = maxDistance.toString();
+      if (sortBy != null && sortBy.isNotEmpty) queryParams['sortBy'] = sortBy;
 
-      final uri = Uri.parse(baseUrl).replace(queryParameters: params);
+      final uri = Uri.parse('$baseUrl/restaurants').replace(
+        queryParameters: queryParams.isNotEmpty ? queryParams : null,
+      );
 
-      print('🌐 Fetching restaurants from: $uri');
+      print('🌐 API Request: $uri');
 
       final response = await http
-          .get(uri, headers: headers)
+          .get(uri, headers: await _getHeaders())
           .timeout(EnvConfig.requestTimeout);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
 
-        if (data['success'] == true && data['data'] != null) {
-          final restaurants = List<Map<String, dynamic>>.from(data['data']);
-          print('✅ Fetched ${restaurants.length} restaurants');
+        if (data['success'] == true && data['data'] is List) {
+          final restaurants = List<Map<String, dynamic>>.from(
+            (data['data'] as List)
+                .map((r) => r is Map<String, dynamic> ? r : {}),
+          );
 
-          for (var restaurant in restaurants) {
-            _calculateDistanceForRestaurant(restaurant, lat, lon);
-          }
-
-          return restaurants;
-        }
-
-        if (data is List) {
-          final restaurants = List<Map<String, dynamic>>.from(data);
-          for (var restaurant in restaurants) {
-            _calculateDistanceForRestaurant(restaurant, lat, lon);
-          }
+          print('✅ Received ${restaurants.length} restaurants');
           return restaurants;
         }
       }
 
       return [];
-    } catch (e) {
+    } catch (e, stackTrace) {
       print('❌ Get restaurants error: $e');
       return [];
     }
   }
 
   /// GET /api/restaurants/:restaurantId
-  /// GET /api/restaurants/:restaurantId
+
   Future<Restaurant?> getRestaurant(String restaurantId) async {
     try {
       final headers = await _getHeaders();

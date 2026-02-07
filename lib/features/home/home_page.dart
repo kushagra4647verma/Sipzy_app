@@ -126,8 +126,9 @@ class _HomePageState extends State<HomePage> {
       print('  Min Rating: ${minRating > 0 ? minRating : "none"}');
       print('  Max Distance: ${maxDistance < 10 ? maxDistance : "none"}');
       print('  Sort: $sortBy');
+      print('  Lat/Lon: ${position?.latitude}, ${position?.longitude}');
 
-      // ✅ CRITICAL: Trust the API response - it already filters by search, cuisine, rating, distance
+      // ✅ Call API with ALL parameters
       final fetchedRestaurants = await _restaurantService.getRestaurants(
         city: cityToUse,
         lat: position?.latitude,
@@ -141,11 +142,11 @@ class _HomePageState extends State<HomePage> {
 
       print('📊 Received ${fetchedRestaurants.length} restaurants from API');
 
-      // ✅ Only apply CLIENT-SIDE filters that the API doesn't support
+      // ✅ Only apply CLIENT-SIDE filters that API doesn't support
       var filteredRestaurants =
           List<Map<String, dynamic>>.from(fetchedRestaurants);
 
-      // Filter by restaurant type (API doesn't support this)
+      // Filter by restaurant type (if API doesn't support this)
       if (selectedRestaurantTypes.isNotEmpty) {
         final beforeCount = filteredRestaurants.length;
         filteredRestaurants = filteredRestaurants.where((r) {
@@ -159,7 +160,7 @@ class _HomePageState extends State<HomePage> {
             '🏷️ Restaurant type filter: $beforeCount → ${filteredRestaurants.length}');
       }
 
-      // Filter by cost (API doesn't support this)
+      // Filter by cost (if API doesn't support this)
       if (minCost > 0 || maxCost < 5000) {
         final beforeCount = filteredRestaurants.length;
         filteredRestaurants = filteredRestaurants.where((r) {
@@ -405,9 +406,8 @@ class _HomePageState extends State<HomePage> {
       backgroundColor: AppTheme.card,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(AppTheme.radiusLg),
-        ),
+        borderRadius:
+            BorderRadius.vertical(top: Radius.circular(AppTheme.radiusLg)),
       ),
       builder: (context) => FilterBottomSheet(
         selectedCuisines: selectedCuisines,
@@ -429,7 +429,9 @@ class _HomePageState extends State<HomePage> {
             minCost = filters['minCost'] as double;
             maxCost = filters['maxCost'] as double;
           });
-          fetchRestaurants(); // This should trigger the API call
+
+          print('🎯 Filters applied, fetching restaurants...');
+          fetchRestaurants();
         },
       ),
     );
@@ -440,14 +442,14 @@ class _HomePageState extends State<HomePage> {
       context: context,
       backgroundColor: AppTheme.card,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(AppTheme.radiusLg),
-        ),
+        borderRadius:
+            BorderRadius.vertical(top: Radius.circular(AppTheme.radiusLg)),
       ),
       builder: (context) => SortBottomSheet(
         currentSort: sortBy,
         onSortSelected: (value) {
           setState(() => sortBy = value);
+          print('📊 Sort changed to: $value');
           fetchRestaurants();
         },
       ),
@@ -462,7 +464,8 @@ class _HomePageState extends State<HomePage> {
     _searchDebounce?.cancel();
     _searchDebounce = Timer(const Duration(milliseconds: 500), () {
       if (mounted) {
-        fetchRestaurants();
+        print('🔍 Search triggered: "$query"');
+        fetchRestaurants(); // ✅ This should call the API
       }
     });
   }
