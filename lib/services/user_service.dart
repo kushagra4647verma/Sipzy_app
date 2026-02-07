@@ -364,7 +364,7 @@ class UserService {
   }
 
   /// POST /api/bookmarks/post_bookmark/:restaurantId
-  /// ⚠️ WARNING: This endpoint TOGGLES bookmarks (add/remove)
+
   Future<bool> addBookmark(String restaurantId) async {
     try {
       final headers = await _getHeaders();

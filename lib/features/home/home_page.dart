@@ -118,13 +118,16 @@ class _HomePageState extends State<HomePage> {
         });
       }
 
-      print('🔍 Fetching with filters:');
-      print('  Search: "$searchQuery"');
-      print('  Cuisine: $selectedCuisines');
-      print('  Rating: $minRating');
-      print('  Distance: $maxDistance');
+      print('🔍 === FETCH RESTAURANTS ===');
+      print('  Search: "${searchQuery.trim()}"');
+      print('  City: $cityToUse');
+      print(
+          '  Cuisine: ${selectedCuisines.isNotEmpty ? selectedCuisines.first : "none"}');
+      print('  Min Rating: ${minRating > 0 ? minRating : "none"}');
+      print('  Max Distance: ${maxDistance < 10 ? maxDistance : "none"}');
       print('  Sort: $sortBy');
 
+      // ✅ CRITICAL: Trust the API response - it already filters by search, cuisine, rating, distance
       final fetchedRestaurants = await _restaurantService.getRestaurants(
         city: cityToUse,
         lat: position?.latitude,
@@ -138,11 +141,13 @@ class _HomePageState extends State<HomePage> {
 
       print('📊 Received ${fetchedRestaurants.length} restaurants from API');
 
+      // ✅ Only apply CLIENT-SIDE filters that the API doesn't support
       var filteredRestaurants =
           List<Map<String, dynamic>>.from(fetchedRestaurants);
 
-      // Client-side filters
+      // Filter by restaurant type (API doesn't support this)
       if (selectedRestaurantTypes.isNotEmpty) {
+        final beforeCount = filteredRestaurants.length;
         filteredRestaurants = filteredRestaurants.where((r) {
           final type = (r['restaurant_type'] ?? r['restaurantType'] ?? '')
               .toString()
@@ -151,31 +156,44 @@ class _HomePageState extends State<HomePage> {
               .any((selected) => type.contains(selected.toLowerCase()));
         }).toList();
         print(
-            '🏷️ After restaurant type filter: ${filteredRestaurants.length}');
+            '🏷️ Restaurant type filter: $beforeCount → ${filteredRestaurants.length}');
       }
 
+      // Filter by cost (API doesn't support this)
       if (minCost > 0 || maxCost < 5000) {
+        final beforeCount = filteredRestaurants.length;
         filteredRestaurants = filteredRestaurants.where((r) {
           final priceRange = r['price_range'] ?? r['priceRange'] ?? 2;
           final costForTwo = priceRange * 500;
           return costForTwo >= minCost && costForTwo <= maxCost;
         }).toList();
-        print('💰 After cost filter: ${filteredRestaurants.length}');
+        print('💰 Cost filter: $beforeCount → ${filteredRestaurants.length}');
       }
+
+      print('✅ Final filtered count: ${filteredRestaurants.length}');
 
       if (mounted) {
         setState(() {
           restaurants = filteredRestaurants;
         });
 
-        // Fetch featured and trending only if no search/filters
-        if (searchQuery.isEmpty && selectedCuisines.isEmpty && minRating == 0) {
+        // Fetch featured and trending ONLY if no filters active
+        final hasActiveFilters = searchQuery.trim().isNotEmpty ||
+            selectedCuisines.isNotEmpty ||
+            minRating > 0 ||
+            selectedRestaurantTypes.isNotEmpty ||
+            minCost > 0 ||
+            maxCost < 5000;
+
+        if (!hasActiveFilters) {
+          print('📌 Fetching featured and trending...');
           await _fetchFeaturedAndTrending(
             city: cityToUse,
             lat: position?.latitude,
             lon: position?.longitude,
           );
         } else {
+          print('🚫 Skipping featured/trending (filters active)');
           setState(() {
             featuredRestaurants = [];
             trendingRestaurants = [];
@@ -227,69 +245,113 @@ class _HomePageState extends State<HomePage> {
   Future<void> fetchBookmarks() async {
     try {
       final bookmarksList = await _userService.getBookmarks();
-      print('📑 Raw bookmarks: $bookmarksList');
+      print('📑 === FETCH BOOKMARKS ===');
+      print('📑 Raw response: ${bookmarksList.length} items');
 
       if (mounted) {
-        final ids = bookmarksList
-            .map((e) {
-              final id = e['restaurant_id'] ??
-                  e['restaurantid'] ??
-                  e['restaurantId'] ??
-                  e['id'];
+        // ✅ Extract ALL possible ID field names and convert to Set
+        final ids = <int>{};
 
-              if (id == null) return 0;
+        for (var bookmark in bookmarksList) {
+          // Try all possible field names
+          final idValue = bookmark['restaurant_id'] ??
+              bookmark['restaurantid'] ??
+              bookmark['restaurantId'] ??
+              bookmark['id'];
 
-              // Convert to int
-              if (id is int) return id;
-              if (id is String) return int.tryParse(id) ?? 0;
-              if (id is num) return id.toInt();
+          if (idValue != null) {
+            int? parsedId;
 
-              return 0;
-            })
-            .where((id) => id != 0)
-            .toSet() // Remove duplicates
-            .toList();
+            if (idValue is int) {
+              parsedId = idValue;
+            } else if (idValue is String) {
+              parsedId = int.tryParse(idValue);
+            } else if (idValue is num) {
+              parsedId = idValue.toInt();
+            }
 
-        print('📑 Processed bookmark IDs: $ids');
+            if (parsedId != null && parsedId != 0) {
+              ids.add(parsedId);
+              print('📑 Added bookmark ID: $parsedId');
+            }
+          }
+        }
+
+        print('📑 Final bookmark IDs: $ids');
 
         setState(() {
-          bookmarkedIds = ids;
+          bookmarkedIds = ids.toList();
         });
       }
-    } catch (e) {
-      print('⚠️ Failed to fetch bookmarks: $e');
+    } catch (e, stackTrace) {
+      print('❌ Failed to fetch bookmarks: $e');
+      print('Stack trace: $stackTrace');
     }
   }
 
   Future<void> toggleBookmark(String restaurantId) async {
+    final restaurantIdInt = int.tryParse(restaurantId);
+    if (restaurantIdInt == null) {
+      print('❌ Invalid restaurant ID: $restaurantId');
+      return;
+    }
+
+    print('🔖 === TOGGLE BOOKMARK ===');
+    print('🔖 Restaurant ID: $restaurantId ($restaurantIdInt)');
+    print('🔖 Current bookmarks: $bookmarkedIds');
+    print(
+        '🔖 Is currently bookmarked: ${bookmarkedIds.contains(restaurantIdInt)}');
+
+    // ✅ Optimistic UI update
+    final wasBookmarked = bookmarkedIds.contains(restaurantIdInt);
+    setState(() {
+      if (wasBookmarked) {
+        bookmarkedIds.remove(restaurantIdInt);
+      } else {
+        bookmarkedIds.add(restaurantIdInt);
+      }
+      // Force rebuild
+      restaurants = List.from(restaurants);
+      featuredRestaurants = List.from(featuredRestaurants);
+      trendingRestaurants = List.from(trendingRestaurants);
+    });
+
     try {
-      print('🔖 Toggling bookmark for: $restaurantId');
-
       final success = await _userService.addBookmark(restaurantId);
+      print('🔖 API response: $success');
 
-      if (success) {
-        // Immediately refetch bookmarks
-        await fetchBookmarks();
-        await _refreshRestaurantData();
-
-        // Force rebuild of all restaurant lists
+      if (!success) {
+        // ✅ Revert on failure
         if (mounted) {
           setState(() {
-            restaurants = List.from(restaurants);
-            featuredRestaurants = List.from(featuredRestaurants);
-            trendingRestaurants = List.from(trendingRestaurants);
+            if (wasBookmarked) {
+              bookmarkedIds.add(restaurantIdInt);
+            } else {
+              bookmarkedIds.remove(restaurantIdInt);
+            }
           });
-
-          _showToast('Bookmark updated');
-        }
-      } else {
-        if (mounted) {
           _showToast('Failed to update bookmark', isError: true);
         }
+        return;
       }
-    } catch (e) {
-      print('❌ Toggle bookmark error: $e');
+
+      await fetchBookmarks();
+
       if (mounted) {
+        _showToast(wasBookmarked ? 'Bookmark removed' : 'Bookmarked!');
+      }
+    } catch (e, stackTrace) {
+      print('❌ Toggle bookmark error: $e');
+      print('Stack trace: $stackTrace');
+
+      if (mounted) {
+        setState(() {
+          if (wasBookmarked) {
+            bookmarkedIds.add(restaurantIdInt);
+          } else {
+            bookmarkedIds.remove(restaurantIdInt);
+          }
+        });
         _showToast('Failed to update bookmark', isError: true);
       }
     }
