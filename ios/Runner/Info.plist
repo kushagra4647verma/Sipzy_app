@@ -44,6 +44,12 @@
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>This app needs access to speech recognition to search restaurants by voice</string>
+
+	<key>NSMicrophoneUsageDescription</key>
+	<string>This app needs access to the microphone for voice search</string>
+
 	<!-- Location permissions -->
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>We need your location to show nearby restaurants</string>

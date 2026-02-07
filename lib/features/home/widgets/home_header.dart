@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
+import 'voice_search_button.dart';
 
 class HomeHeader extends StatelessWidget {
   final String selectedCity;
@@ -136,7 +137,7 @@ class HomeHeader extends StatelessWidget {
 
           const SizedBox(height: 16),
 
-          // Search Bar
+          // Search Bar with Voice Search
           Container(
             decoration: BoxDecoration(
               color: AppTheme.glassLight,
@@ -146,16 +147,19 @@ class HomeHeader extends StatelessWidget {
             child: TextField(
               onChanged: onSearchChanged,
               style: const TextStyle(color: AppTheme.textPrimary),
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText: 'Search restaurants, cuisines, areas...',
-                hintStyle: TextStyle(color: AppTheme.textTertiary),
-                prefixIcon: Icon(Icons.search, color: AppTheme.textSecondary),
-                suffixIcon: Icon(
-                  Icons.mic_rounded,
-                  color: AppTheme.primary,
+                hintStyle: const TextStyle(color: AppTheme.textTertiary),
+                prefixIcon:
+                    const Icon(Icons.search, color: AppTheme.textSecondary),
+                suffixIcon: Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: VoiceSearchButton(
+                    onSearchComplete: onSearchChanged,
+                  ),
                 ),
                 border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(
+                contentPadding: const EdgeInsets.symmetric(
                   horizontal: AppTheme.spacing16,
                   vertical: AppTheme.spacing12,
                 ),
