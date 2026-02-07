@@ -37,7 +37,7 @@ class _HomePageState extends State<HomePage> {
   List<Map<String, dynamic>> restaurants = [];
   List<Map<String, dynamic>> featuredRestaurants = [];
   List<Map<String, dynamic>> trendingRestaurants = [];
-  List<int> bookmarkedIds = [];
+  List<String> bookmarkedIds = [];
 
   bool loading = true;
   bool hasError = false;
@@ -249,8 +249,8 @@ class _HomePageState extends State<HomePage> {
       print('📑 Raw response: ${bookmarksList.length} items');
 
       if (mounted) {
-        // ✅ Extract ALL possible ID field names and convert to Set
-        final ids = <int>{};
+        // ✅ Extract restaurant IDs as strings (UUIDs)
+        final ids = <String>[];
 
         for (var bookmark in bookmarksList) {
           // Try all possible field names
@@ -260,19 +260,10 @@ class _HomePageState extends State<HomePage> {
               bookmark['id'];
 
           if (idValue != null) {
-            int? parsedId;
-
-            if (idValue is int) {
-              parsedId = idValue;
-            } else if (idValue is String) {
-              parsedId = int.tryParse(idValue);
-            } else if (idValue is num) {
-              parsedId = idValue.toInt();
-            }
-
-            if (parsedId != null && parsedId != 0) {
-              ids.add(parsedId);
-              print('📑 Added bookmark ID: $parsedId');
+            final stringId = idValue.toString();
+            if (stringId.isNotEmpty && stringId != '0') {
+              ids.add(stringId);
+              print('📑 Added bookmark ID: $stringId');
             }
           }
         }
@@ -280,7 +271,7 @@ class _HomePageState extends State<HomePage> {
         print('📑 Final bookmark IDs: $ids');
 
         setState(() {
-          bookmarkedIds = ids.toList();
+          bookmarkedIds = ids; // ✅ Direct assignment of List<String>
         });
       }
     } catch (e, stackTrace) {
@@ -290,25 +281,19 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> toggleBookmark(String restaurantId) async {
-    final restaurantIdInt = int.tryParse(restaurantId);
-    if (restaurantIdInt == null) {
-      print('❌ Invalid restaurant ID: $restaurantId');
-      return;
-    }
-
     print('🔖 === TOGGLE BOOKMARK ===');
-    print('🔖 Restaurant ID: $restaurantId ($restaurantIdInt)');
+    print('🔖 Restaurant ID: $restaurantId');
     print('🔖 Current bookmarks: $bookmarkedIds');
     print(
-        '🔖 Is currently bookmarked: ${bookmarkedIds.contains(restaurantIdInt)}');
+        '🔖 Is currently bookmarked: ${bookmarkedIds.contains(restaurantId)}');
 
-    // ✅ Optimistic UI update
-    final wasBookmarked = bookmarkedIds.contains(restaurantIdInt);
+    // ✅ Use string comparison
+    final wasBookmarked = bookmarkedIds.contains(restaurantId);
     setState(() {
       if (wasBookmarked) {
-        bookmarkedIds.remove(restaurantIdInt);
+        bookmarkedIds.remove(restaurantId);
       } else {
-        bookmarkedIds.add(restaurantIdInt);
+        bookmarkedIds.add(restaurantId);
       }
       // Force rebuild
       restaurants = List.from(restaurants);
@@ -325,9 +310,9 @@ class _HomePageState extends State<HomePage> {
         if (mounted) {
           setState(() {
             if (wasBookmarked) {
-              bookmarkedIds.add(restaurantIdInt);
+              bookmarkedIds.add(restaurantId);
             } else {
-              bookmarkedIds.remove(restaurantIdInt);
+              bookmarkedIds.remove(restaurantId);
             }
           });
           _showToast('Failed to update bookmark', isError: true);
@@ -347,9 +332,9 @@ class _HomePageState extends State<HomePage> {
       if (mounted) {
         setState(() {
           if (wasBookmarked) {
-            bookmarkedIds.add(restaurantIdInt);
+            bookmarkedIds.add(restaurantId);
           } else {
-            bookmarkedIds.remove(restaurantIdInt);
+            bookmarkedIds.remove(restaurantId);
           }
         });
         _showToast('Failed to update bookmark', isError: true);
@@ -580,7 +565,7 @@ class _HomePageState extends State<HomePage> {
 
           // Restaurant List
           ...restaurants.map((restaurant) {
-            final restaurantId = restaurant['id'] ?? 0;
+            final restaurantId = restaurant['id']?.toString() ?? '';
             final isBookmarked = bookmarkedIds.contains(restaurantId);
 
             return Padding(

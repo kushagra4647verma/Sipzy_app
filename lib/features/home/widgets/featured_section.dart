@@ -4,7 +4,7 @@ import 'restaurant_card.dart';
 
 class FeaturedSection extends StatelessWidget {
   final List<Map<String, dynamic>> featuredRestaurants;
-  final List<int> bookmarkedIds;
+  final List<String> bookmarkedIds;
   final Function(String restaurantId) onBookmarkToggle;
 
   const FeaturedSection({
@@ -40,7 +40,7 @@ class FeaturedSection extends StatelessWidget {
             separatorBuilder: (context, index) => const SizedBox(width: 16),
             itemBuilder: (context, index) {
               final restaurant = featuredRestaurants[index];
-              final restaurantId = restaurant['id'] ?? 0;
+              final restaurantId = restaurant['id']?.toString() ?? '';
               final isBookmarked = bookmarkedIds.contains(restaurantId);
 
               return SizedBox(

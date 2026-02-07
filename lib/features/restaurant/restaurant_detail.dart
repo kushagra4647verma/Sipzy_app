@@ -12,6 +12,7 @@ import '../../shared/ui/invite_friends_modal.dart';
 import '../../shared/ui/group_mix_magic_dialog.dart';
 import '../../shared/ui/share_modal.dart';
 import '../../features/models/restaurant_model.dart';
+import 'dart:typed_data';
 
 class RestaurantDetail extends StatefulWidget {
   final Map<String, dynamic> user;
@@ -274,16 +275,134 @@ class _RestaurantDetailState extends State<RestaurantDetail>
   }
 
   void openMaps() async {
-    final lat = restaurant?['latitude'] ?? restaurant?['lat'];
-    final lon = restaurant?['longitude'] ?? restaurant?['lon'];
+    // Try to get lat/lon from multiple possible sources
+    double? lat;
+    double? lon;
 
+    lat = restaurant?['latitude'] ?? restaurant?['lat'];
+    lon = restaurant?['longitude'] ?? restaurant?['lon'];
+
+    print('📍 Opening maps...');
+    print('📍 Lat: $lat, Lon: $lon');
+
+    // If we have coordinates, use them
     if (lat != null && lon != null) {
-      final url = Uri.parse(
+      // Try Google Maps app first (geo: URI scheme for Android)
+      final geoUri = Uri.parse('geo:$lat,$lon?q=$lat,$lon');
+
+      try {
+        final canLaunchGeo = await canLaunchUrl(geoUri);
+        if (canLaunchGeo) {
+          await launchUrl(geoUri, mode: LaunchMode.externalApplication);
+          print('✅ Opened with geo: URI');
+          return;
+        }
+      } catch (e) {
+        print('⚠️ geo: URI failed: $e');
+      }
+
+      // Fallback to Google Maps web URL
+      final mapsUrl = Uri.parse(
         'https://www.google.com/maps/search/?api=1&query=$lat,$lon',
       );
-      if (await canLaunchUrl(url)) {
-        await launchUrl(url, mode: LaunchMode.externalApplication);
+
+      try {
+        await launchUrl(mapsUrl, mode: LaunchMode.externalApplication);
+        print('✅ Opened with web URL');
+        return;
+      } catch (e) {
+        print('❌ Maps URL failed: $e');
       }
+    }
+
+    // Fallback to address search
+    final address = restaurant!['address'];
+    final area = restaurant!['area'];
+    final city = restaurant!['city'];
+
+    if (address != null && area != null && city != null) {
+      final fullAddress = '$address, $area, $city';
+
+      // Try geo: URI with address
+      final geoUri = Uri.parse('geo:0,0?q=${Uri.encodeComponent(fullAddress)}');
+
+      try {
+        final canLaunchGeo = await canLaunchUrl(geoUri);
+        if (canLaunchGeo) {
+          await launchUrl(geoUri, mode: LaunchMode.externalApplication);
+          print('✅ Opened with geo: URI (address)');
+          return;
+        }
+      } catch (e) {
+        print('⚠️ geo: URI (address) failed: $e');
+      }
+
+      // Fallback to web URL with address
+      final mapsUrl = Uri.parse(
+        'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(fullAddress)}',
+      );
+
+      try {
+        await launchUrl(mapsUrl, mode: LaunchMode.externalApplication);
+        print('✅ Opened with web URL (address)');
+        return;
+      } catch (e) {
+        print('❌ Maps URL (address) failed: $e');
+      }
+    }
+
+    _toast('Could not open maps', isError: true);
+  }
+
+// Helper to parse PostGIS WKB format
+  Map<String, double>? _parsePostGISLocation(String wkb) {
+    try {
+      // PostGIS WKB hex format for POINT
+      // Format: 0101000020E6100000[LON_HEX][LAT_HEX]
+      if (!wkb.startsWith('0101000020')) return null;
+
+      // Extract the coordinate hex strings (skip header)
+      final coordHex = wkb.substring(20); // Skip SRID and header
+
+      if (coordHex.length < 32) return null;
+
+      // Extract lon and lat hex strings (16 chars each = 8 bytes)
+      final lonHex = coordHex.substring(0, 16);
+      final latHex = coordHex.substring(16, 32);
+
+      // Convert hex to double (little-endian IEEE 754)
+      final lon = _hexToDouble(lonHex);
+      final lat = _hexToDouble(latHex);
+
+      if (lon != null && lat != null) {
+        print('📍 Parsed PostGIS: $lat, $lon');
+        return {'lat': lat, 'lon': lon};
+      }
+    } catch (e) {
+      print('❌ Error parsing PostGIS location: $e');
+    }
+
+    return null;
+  }
+
+  double? _hexToDouble(String hex) {
+    try {
+      // Reverse byte order for little-endian
+      final bytes = <int>[];
+      for (int i = hex.length - 2; i >= 0; i -= 2) {
+        bytes.add(int.parse(hex.substring(i, i + 2), radix: 16));
+      }
+
+      // Convert bytes to double using ByteData
+      final byteData = ByteData(8);
+      for (int i = 0; i < 8; i++) {
+        byteData.setUint8(i, bytes[i]);
+      }
+
+      return byteData.getFloat64(0, Endian.little);
+    } catch (e) {
+      print('❌ Error converting hex to double: $e');
+      return null;
     }
   }
 
