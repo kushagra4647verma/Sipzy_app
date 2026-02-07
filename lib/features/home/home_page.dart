@@ -55,12 +55,23 @@ class _HomePageState extends State<HomePage> {
   String sortBy = 'rating';
   String selectedCity = 'Bangalore';
   String? selectedArea;
+  // ✅ Track if user manually selected city vs auto-detected
+  bool isManualCitySelection = false;
+
   final cities = [
     'Mumbai',
     'Delhi',
     'Bangalore',
     'Hyderabad',
   ];
+
+  // ✅ City center coordinates for manual selection
+  final Map<String, Map<String, double>> cityCenters = {
+    'Mumbai': {'lat': 19.0760, 'lon': 72.8777},
+    'Delhi': {'lat': 28.7041, 'lon': 77.1025},
+    'Bangalore': {'lat': 12.9716, 'lon': 77.5946},
+    'Hyderabad': {'lat': 17.3850, 'lon': 78.4867},
+  };
 
   @override
   void initState() {
@@ -80,6 +91,7 @@ class _HomePageState extends State<HomePage> {
         setState(() {
           selectedCity = locationService.currentCity!;
           selectedArea = locationService.currentArea;
+          isManualCitySelection = false; // ✅ Auto-detected
         });
       }
     }
@@ -109,36 +121,110 @@ class _HomePageState extends State<HomePage> {
 
     try {
       final locationService = LocationService();
-      final position = await locationService.getCurrentLocation();
-      final cityToUse = locationService.currentCity ?? selectedCity;
 
-      if (mounted && locationService.currentCity != null) {
-        setState(() {
-          selectedCity = locationService.currentCity!;
-        });
+      // ✅ Use different coordinates based on selection type
+      double? lat;
+      double? lon;
+      String cityToUse = selectedCity;
+
+      if (isManualCitySelection) {
+        // Use city center coordinates for manually selected city
+        final center = cityCenters[selectedCity];
+        if (center != null) {
+          lat = center['lat'];
+          lon = center['lon'];
+          print('📍 Using city center for $selectedCity: $lat, $lon');
+        }
+      } else {
+        // Use actual GPS location for current location
+        final position = await locationService.getCurrentLocation();
+        lat = position?.latitude;
+        lon = position?.longitude;
+
+        // Update city if GPS detected different city
+        if (mounted && locationService.currentCity != null) {
+          setState(() {
+            selectedCity = locationService.currentCity!;
+          });
+        }
+        cityToUse = locationService.currentCity ?? selectedCity;
+        print('📍 Using GPS location: $lat, $lon');
       }
 
       print('🔍 === FETCH RESTAURANTS ===');
       print('  Search: "${searchQuery.trim()}"');
       print('  City: $cityToUse');
+      print('  Manual Selection: $isManualCitySelection');
       print(
           '  Cuisine: ${selectedCuisines.isNotEmpty ? selectedCuisines.first : "none"}');
       print('  Min Rating: ${minRating > 0 ? minRating : "none"}');
       print('  Max Distance: ${maxDistance < 10 ? maxDistance : "none"}');
       print('  Sort: $sortBy');
-      print('  Lat/Lon: ${position?.latitude}, ${position?.longitude}');
+      print('  Lat/Lon: $lat, $lon');
 
-      // ✅ Call API with ALL parameters
-      final fetchedRestaurants = await _restaurantService.getRestaurants(
-        city: cityToUse,
-        lat: position?.latitude,
-        lon: position?.longitude,
-        search: searchQuery.trim().isNotEmpty ? searchQuery.trim() : null,
-        cuisine: selectedCuisines.isNotEmpty ? selectedCuisines.first : null,
-        minRating: minRating > 0 ? minRating : null,
-        maxDistance: maxDistance < 10 ? maxDistance : null,
-        sortBy: sortBy,
-      );
+      List<Map<String, dynamic>> fetchedRestaurants = [];
+
+      // ✅ FIX: Try multiple API approaches for manual city selection
+      if (isManualCitySelection &&
+          searchQuery.trim().isEmpty &&
+          selectedCuisines.isEmpty) {
+        print('🌆 Trying city-specific API for manual selection...');
+
+        // Try 1: getRestaurantsByCity (specific endpoint)
+        try {
+          final result =
+              await _restaurantService.getRestaurantsByCity(cityToUse);
+          fetchedRestaurants = List<Map<String, dynamic>>.from(
+              result.map((r) => r is Map<String, dynamic> ? r : {}));
+          print(
+              '✅ getRestaurantsByCity returned ${fetchedRestaurants.length} restaurants');
+        } catch (e) {
+          print('⚠️ getRestaurantsByCity failed: $e');
+        }
+
+        // Try 2: If that fails, try nearby with city center coordinates
+        if (fetchedRestaurants.isEmpty && lat != null && lon != null) {
+          print('🌆 Trying nearby API with large radius...');
+          try {
+            final result = await _restaurantService.getNearbyRestaurants(
+              lat: lat,
+              lon: lon,
+              radius: 50, // Large radius for city-wide search
+            );
+            fetchedRestaurants = List<Map<String, dynamic>>.from(
+                result.map((r) => r is Map<String, dynamic> ? r : {}));
+            print(
+                '✅ getNearbyRestaurants returned ${fetchedRestaurants.length} restaurants');
+          } catch (e) {
+            print('⚠️ getNearbyRestaurants failed: $e');
+          }
+        }
+
+        // Try 3: Fallback to regular getRestaurants
+        if (fetchedRestaurants.isEmpty) {
+          print('🌆 Falling back to getRestaurants...');
+          fetchedRestaurants = await _restaurantService.getRestaurants(
+            city: cityToUse,
+            lat: lat,
+            lon: lon,
+            sortBy: sortBy,
+          );
+          print(
+              '✅ getRestaurants returned ${fetchedRestaurants.length} restaurants');
+        }
+      } else {
+        // ✅ Use standard API call for GPS location or when filters are active
+        fetchedRestaurants = await _restaurantService.getRestaurants(
+          city: cityToUse,
+          lat: lat,
+          lon: lon,
+          search: searchQuery.trim().isNotEmpty ? searchQuery.trim() : null,
+          cuisine: selectedCuisines.isNotEmpty ? selectedCuisines.first : null,
+          minRating: minRating > 0 ? minRating : null,
+          maxDistance: maxDistance < 10 ? maxDistance : null,
+          sortBy: sortBy,
+        );
+      }
 
       print('📊 Received ${fetchedRestaurants.length} restaurants from API');
 
@@ -178,7 +264,7 @@ class _HomePageState extends State<HomePage> {
           restaurants = filteredRestaurants;
         });
 
-        // Fetch featured and trending ONLY if no filters active
+        // ✅ Fetch featured and trending for BOTH current location AND manually selected cities
         final hasActiveFilters = searchQuery.trim().isNotEmpty ||
             selectedCuisines.isNotEmpty ||
             minRating > 0 ||
@@ -190,8 +276,8 @@ class _HomePageState extends State<HomePage> {
           print('📌 Fetching featured and trending...');
           await _fetchFeaturedAndTrending(
             city: cityToUse,
-            lat: position?.latitude,
-            lon: position?.longitude,
+            lat: lat,
+            lon: lon,
           );
         } else {
           print('🚫 Skipping featured/trending (filters active)');
@@ -201,8 +287,9 @@ class _HomePageState extends State<HomePage> {
           });
         }
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       print('❌ Fetch restaurants error: $e');
+      print('Stack trace: $stackTrace');
       if (mounted) {
         setState(() => hasError = true);
         _showToast('Failed to load restaurants', isError: true);
@@ -250,11 +337,9 @@ class _HomePageState extends State<HomePage> {
       print('📑 Raw response: ${bookmarksList.length} items');
 
       if (mounted) {
-        // ✅ Extract restaurant IDs as strings (UUIDs)
         final ids = <String>[];
 
         for (var bookmark in bookmarksList) {
-          // Try all possible field names
           final idValue = bookmark['restaurant_id'] ??
               bookmark['restaurantid'] ??
               bookmark['restaurantId'] ??
@@ -272,7 +357,7 @@ class _HomePageState extends State<HomePage> {
         print('📑 Final bookmark IDs: $ids');
 
         setState(() {
-          bookmarkedIds = ids; // ✅ Direct assignment of List<String>
+          bookmarkedIds = ids;
         });
       }
     } catch (e, stackTrace) {
@@ -288,7 +373,6 @@ class _HomePageState extends State<HomePage> {
     print(
         '🔖 Is currently bookmarked: ${bookmarkedIds.contains(restaurantId)}');
 
-    // ✅ Use string comparison
     final wasBookmarked = bookmarkedIds.contains(restaurantId);
     setState(() {
       if (wasBookmarked) {
@@ -296,7 +380,6 @@ class _HomePageState extends State<HomePage> {
       } else {
         bookmarkedIds.add(restaurantId);
       }
-      // Force rebuild
       restaurants = List.from(restaurants);
       featuredRestaurants = List.from(featuredRestaurants);
       trendingRestaurants = List.from(trendingRestaurants);
@@ -307,7 +390,6 @@ class _HomePageState extends State<HomePage> {
       print('🔖 API response: $success');
 
       if (!success) {
-        // ✅ Revert on failure
         if (mounted) {
           setState(() {
             if (wasBookmarked) {
@@ -392,7 +474,11 @@ class _HomePageState extends State<HomePage> {
         selectedCity: selectedCity,
         cities: cities,
         onCitySelected: (city) {
-          setState(() => selectedCity = city);
+          setState(() {
+            selectedCity = city;
+            isManualCitySelection = true; // ✅ Mark as manual selection
+            selectedArea = null; // Clear area for manual selection
+          });
           fetchRestaurants();
         },
         onToast: _showToast,
@@ -465,7 +551,7 @@ class _HomePageState extends State<HomePage> {
     _searchDebounce = Timer(const Duration(milliseconds: 500), () {
       if (mounted) {
         print('🔍 Search triggered: "$query"');
-        fetchRestaurants(); // ✅ This should call the API
+        fetchRestaurants();
       }
     });
   }
@@ -557,7 +643,9 @@ class _HomePageState extends State<HomePage> {
                     selectedCuisines.isNotEmpty ||
                     minRating > 0
                 ? 'Results (${restaurants.length})'
-                : 'Nearby Restaurants',
+                : isManualCitySelection
+                    ? 'Restaurants in $selectedCity'
+                    : 'Nearby Restaurants',
             style: const TextStyle(
               color: AppTheme.textPrimary,
               fontSize: 20,

@@ -36,11 +36,13 @@ class CitySelectorSheet extends StatelessWidget {
           onTap: () async {
             Navigator.pop(context);
 
+            // ✅ FIX #2: Force refresh to get actual GPS coordinates
             final position =
                 await locationService.getCurrentLocation(forceRefresh: true);
 
             if (context.mounted) {
               if (position != null && locationService.currentCity != null) {
+                // ✅ This will trigger home_page to use GPS coordinates instead of city center
                 onCitySelected(locationService.currentCity!);
                 onToast('Location updated to ${locationService.currentCity}');
               } else {
@@ -71,7 +73,7 @@ class CitySelectorSheet extends StatelessWidget {
                     ? const Icon(Icons.check, color: AppTheme.primary)
                     : null,
                 onTap: () {
-                  locationService.setCity(city);
+                  // ✅ Note: City selection now handled in home_page with isManualCitySelection flag
                   onCitySelected(city);
                   Navigator.pop(context);
                 },

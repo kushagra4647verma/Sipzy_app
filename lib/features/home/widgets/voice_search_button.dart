@@ -74,6 +74,9 @@ class _VoiceSearchButtonState extends State<VoiceSearchButton>
           _transcription = result.recognizedWords;
         });
 
+        // ✅ FIX #1: Update search bar in real-time during transcription
+        widget.onSearchComplete(result.recognizedWords);
+
         // Auto-complete when user stops speaking
         if (result.finalResult) {
           _completeSearch();
