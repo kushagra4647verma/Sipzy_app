@@ -21,6 +21,7 @@ class BeverageDetailPage extends StatefulWidget {
 
 class _BeverageDetailPageState extends State<BeverageDetailPage> {
   final _beverageService = BeverageService();
+  final _scrollController = ScrollController();
 
   Map<String, dynamic>? beverage;
   bool loading = true;
@@ -37,6 +38,7 @@ class _BeverageDetailPageState extends State<BeverageDetailPage> {
   void initState() {
     super.initState();
     fetchBeverage();
+    _scrollController.dispose();
   }
 
   Future<void> fetchBeverage() async {

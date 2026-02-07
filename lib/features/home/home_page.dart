@@ -54,7 +54,7 @@ class _HomePageState extends State<HomePage> {
 
   String sortBy = 'rating';
   String selectedCity = 'Bangalore';
-
+  String? selectedArea;
   final cities = [
     'Mumbai',
     'Delhi',
@@ -79,6 +79,7 @@ class _HomePageState extends State<HomePage> {
       if (mounted && position != null && locationService.currentCity != null) {
         setState(() {
           selectedCity = locationService.currentCity!;
+          selectedArea = locationService.currentArea;
         });
       }
     }

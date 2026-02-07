@@ -11,12 +11,14 @@ class HomeHeader extends StatelessWidget {
   final VoidCallback onFilterTap;
   final VoidCallback onSortTap;
   final Function(String query) onSearchChanged;
+  final String? selectedArea;
 
   const HomeHeader({
     super.key,
     required this.selectedCity,
     required this.searchQuery,
     required this.hasActiveFilters,
+    this.selectedArea,
     required this.sortLabel,
     required this.onCityTap,
     required this.onFilterTap,
@@ -50,11 +52,25 @@ class HomeHeader extends StatelessWidget {
                       size: 20,
                     ),
                     const SizedBox(width: 8),
-                    Text(
-                      selectedCity,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          selectedCity,
+                          style:
+                              Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                        ),
+                        if (selectedArea != null && selectedArea!.isNotEmpty)
+                          Text(
+                            selectedArea!,
+                            style: const TextStyle(
+                              color: AppTheme.textTertiary,
+                              fontSize: 10,
+                            ),
                           ),
+                      ],
                     ),
                     const SizedBox(width: 4),
                     const Icon(
@@ -65,7 +81,6 @@ class HomeHeader extends StatelessWidget {
                   ],
                 ),
               ),
-
               // Expert Corner Button
               InkWell(
                 onTap: () => context.push('/expert-corner'),

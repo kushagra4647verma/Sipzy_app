@@ -1,5 +1,7 @@
 // lib/services/location_service.dart
+import 'dart:convert';
 import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
 import 'package:permission_handler/permission_handler.dart';
 
 class LocationService {
@@ -7,7 +9,8 @@ class LocationService {
   static final LocationService _instance = LocationService._internal();
   factory LocationService() => _instance;
   LocationService._internal();
-
+  String? _currentArea;
+  String? get currentArea => _currentArea;
   Position? _currentPosition;
   String? _currentCity;
 
@@ -81,18 +84,26 @@ class LocationService {
   Future<void> _getCityFromCoordinates() async {
     if (_currentPosition == null) return;
 
-    // TODO: Integrate with a geocoding API like:
-    // - Google Geocoding API
-    // - OpenStreetMap Nominatim
-    // - Mapbox Geocoding
+    // Try reverse geocoding first
+    final geocodeResult = await reverseGeocode(
+      _currentPosition!.latitude,
+      _currentPosition!.longitude,
+    );
 
-    // For now, we'll use a fallback based on known coordinates
+    if (geocodeResult != null) {
+      _currentCity = geocodeResult['city'];
+      _currentArea = geocodeResult['area'];
+      print('📍 From geocoding: city=$_currentCity, area=$_currentArea');
+      return;
+    }
+
+    // Fallback to known coordinates
     _currentCity = _getCityFromKnownCoordinates(
       _currentPosition!.latitude,
       _currentPosition!.longitude,
     );
 
-    print('📍 Detected city: $_currentCity');
+    print('📍 From fallback: city=$_currentCity');
   }
 
   /// Fallback city detection based on coordinates
@@ -146,7 +157,50 @@ class LocationService {
     return Geolocator.distanceBetween(lat1, lon1, lat2, lon2) / 1000; // km
   }
 
-  /// Get distance to a restaurant
+  /// Reverse geocode coordinates to get area and city using OpenStreetMap
+  Future<Map<String, String>?> reverseGeocode(double lat, double lon) async {
+    try {
+      final url = Uri.parse(
+        'https://nominatim.openstreetmap.org/reverse?'
+        'format=json&lat=$lat&lon=$lon&zoom=18&addressdetails=1',
+      );
+
+      final response = await http.get(
+        url,
+        headers: {'User-Agent': 'SipZy-App/1.0'},
+      ).timeout(const Duration(seconds: 5));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final address = data['address'] as Map<String, dynamic>?;
+
+        if (address != null) {
+          final area = address['suburb'] ??
+              address['neighbourhood'] ??
+              address['road'] ??
+              address['locality'] ??
+              '';
+
+          final city = address['city'] ??
+              address['town'] ??
+              address['village'] ??
+              address['state_district'] ??
+              '';
+
+          print('📍 Reverse geocode: area=$area, city=$city');
+
+          return {
+            'area': area.toString(),
+            'city': city.toString(),
+          };
+        }
+      }
+    } catch (e) {
+      print('❌ Reverse geocode error: $e');
+    }
+    return null;
+  }
+
   double? getDistanceToRestaurant(Map restaurant) {
     if (_currentPosition == null) return null;
 
