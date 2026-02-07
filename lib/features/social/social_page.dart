@@ -189,7 +189,6 @@ class _SocialPageState extends State<SocialPage>
   }
   // ============ DIARY CRUD OPERATIONS ============
 
-  // ✅ FIXED: Use actual parameters instead of hardcoded values
   Future<void> addDiaryEntry({
     required String bevName,
     required String restaurant,
@@ -423,7 +422,6 @@ class _SocialPageState extends State<SocialPage>
       );
     }
 
-    // ✅ FIX: Check current tab for FAB visibility
     final showFAB = _tabController.index == 1;
     print('🎯 FAB should show: $showFAB (tab index: ${_tabController.index})');
 
@@ -434,28 +432,53 @@ class _SocialPageState extends State<SocialPage>
           onRefresh: fetchAll,
           color: AppTheme.primary,
           backgroundColor: AppTheme.card,
-          child: Column(
-            children: [
-              _buildProfileHeader(),
-              _buildTabBar(),
-              Expanded(
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _ratingsTab(),
-                    _diaryTab(),
-                    _badgesTab(),
-                    _savesTab(),
-                    _friendsTab(),
-                  ],
+          child: NestedScrollView(
+            headerSliverBuilder:
+                (BuildContext context, bool innerBoxIsScrolled) {
+              return [
+                // Collapsible Profile Header
+                SliverToBoxAdapter(
+                  child: _buildCollapsibleProfileHeader(innerBoxIsScrolled),
                 ),
-              ),
-            ],
+                // Tab Bar (always visible)
+                SliverPersistentHeader(
+                  pinned: true,
+                  delegate: _SliverTabBarDelegate(
+                    TabBar(
+                      controller: _tabController,
+                      indicatorColor: AppTheme.primary,
+                      indicatorWeight: 3,
+                      labelColor: AppTheme.primary,
+                      unselectedLabelColor: AppTheme.textSecondary,
+                      labelStyle: const TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w600),
+                      isScrollable: true,
+                      tabs: const [
+                        Tab(text: 'Ratings'),
+                        Tab(text: 'Diary'),
+                        Tab(text: 'Badges'),
+                        Tab(text: 'Saves'),
+                        Tab(text: 'Friends'),
+                      ],
+                    ),
+                  ),
+                ),
+              ];
+            },
+            body: TabBarView(
+              controller: _tabController,
+              children: [
+                _ratingsTab(),
+                _diaryTab(),
+                _badgesTab(),
+                _savesTab(),
+                _friendsTab(),
+              ],
+            ),
           ),
         ),
       ),
       bottomNavigationBar: const BottomNav(active: 'social'),
-      // ✅ FIX: Always show FAB when on diary tab
       floatingActionButton: showFAB
           ? FloatingActionButton.extended(
               backgroundColor: AppTheme.primary,
@@ -478,8 +501,10 @@ class _SocialPageState extends State<SocialPage>
     );
   }
 
-  Widget _buildProfileHeader() {
-    return Container(
+  // New collapsible header widget
+  Widget _buildCollapsibleProfileHeader(bool isCollapsed) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -493,103 +518,193 @@ class _SocialPageState extends State<SocialPage>
         border: const Border(bottom: BorderSide(color: AppTheme.border)),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            padding: const EdgeInsets.all(4),
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                colors: [AppTheme.primary, AppTheme.secondary],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppTheme.background,
-              ),
-              child: CircleAvatar(
-                radius: 48,
-                backgroundColor: AppTheme.primary,
-                child: Text(
-                  widget.user['name']?[0]?.toUpperCase() ?? '?',
-                  style: const TextStyle(
-                      fontSize: 36,
-                      color: Colors.black,
-                      fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            widget.user['name'] ?? 'User',
-            style: Theme.of(context)
-                .textTheme
-                .headlineSmall
-                ?.copyWith(fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '@${(widget.user['name'] ?? 'user').toLowerCase().replaceAll(' ', '')}',
-            style: Theme.of(context)
-                .textTheme
-                .bodyMedium
-                ?.copyWith(color: AppTheme.textTertiary),
-          ),
-          const SizedBox(height: 20),
+          // Top row with action icons
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              _buildStatItem('Ratings', stats['ratingsCount'] ?? 0),
-              Container(width: 1, height: 40, color: AppTheme.border),
-              _buildStatItem('Friends', stats['friendsCount'] ?? 0),
-              Container(width: 1, height: 40, color: AppTheme.border),
-              _buildStatItem('Badges', stats['badgesCount'] ?? 0),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => _showEditProfileDialog(),
-                  icon:
-                      const Icon(Icons.edit, size: 18, color: AppTheme.primary),
-                  label: const Text('Edit Profile',
-                      style: TextStyle(
-                          color: AppTheme.primary,
-                          fontWeight: FontWeight.w600)),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: AppTheme.primary),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppTheme.radiusMd)),
+              // Edit Profile Icon
+              InkWell(
+                onTap: () => _showEditProfileDialog(),
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.glassLight,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppTheme.border),
+                  ),
+                  child: const Icon(
+                    Icons.edit_rounded,
+                    color: AppTheme.primary,
+                    size: 20,
                   ),
                 ),
               ),
               const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: logout,
-                  icon: const Icon(Icons.logout_rounded, size: 18),
-                  label: const Text('Logout',
-                      style: TextStyle(fontWeight: FontWeight.w600)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red.shade600,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppTheme.radiusMd)),
+              // Logout Icon
+              InkWell(
+                onTap: logout,
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade600.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                    border:
+                        Border.all(color: Colors.red.shade600.withOpacity(0.3)),
+                  ),
+                  child: Icon(
+                    Icons.logout_rounded,
+                    color: Colors.red.shade600,
+                    size: 20,
                   ),
                 ),
               ),
             ],
           ),
+
+          if (!isCollapsed) ...[
+            const SizedBox(height: 12),
+            // Avatar
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  colors: [AppTheme.primary, AppTheme.secondary],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppTheme.background,
+                ),
+                child: CircleAvatar(
+                  radius: 48,
+                  backgroundColor: AppTheme.primary,
+                  child: Text(
+                    widget.user['name']?[0]?.toUpperCase() ?? '?',
+                    style: const TextStyle(
+                        fontSize: 36,
+                        color: Colors.black,
+                        fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              widget.user['name'] ?? 'User',
+              style: Theme.of(context)
+                  .textTheme
+                  .headlineSmall
+                  ?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '@${(widget.user['name'] ?? 'user').toLowerCase().replaceAll(' ', '')}',
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(color: AppTheme.textTertiary),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildStatItem('Ratings', stats['ratingsCount'] ?? 0),
+                Container(width: 1, height: 40, color: AppTheme.border),
+                _buildStatItem('Friends', stats['friendsCount'] ?? 0),
+                Container(width: 1, height: 40, color: AppTheme.border),
+                _buildStatItem('Badges', stats['badgesCount'] ?? 0),
+              ],
+            ),
+          ] else ...[
+            // Collapsed state - show compact info
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 20,
+                  backgroundColor: AppTheme.primary,
+                  child: Text(
+                    widget.user['name']?[0]?.toUpperCase() ?? '?',
+                    style: const TextStyle(
+                        fontSize: 16,
+                        color: Colors.black,
+                        fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        widget.user['name'] ?? 'User',
+                        style: const TextStyle(
+                          color: AppTheme.textPrimary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        '@${(widget.user['name'] ?? 'user').toLowerCase().replaceAll(' ', '')}',
+                        style: const TextStyle(
+                          color: AppTheme.textTertiary,
+                          fontSize: 12,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Compact stats
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildCompactStat(Icons.star, stats['ratingsCount'] ?? 0),
+                    const SizedBox(width: 12),
+                    _buildCompactStat(Icons.people, stats['friendsCount'] ?? 0),
+                    const SizedBox(width: 12),
+                    _buildCompactStat(
+                        Icons.emoji_events, stats['badgesCount'] ?? 0),
+                  ],
+                ),
+              ],
+            ),
+          ],
         ],
       ),
+    );
+  }
+
+  // Compact stat widget for collapsed state
+  Widget _buildCompactStat(IconData icon, int count) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: AppTheme.textSecondary),
+        const SizedBox(width: 4),
+        Text(
+          '$count',
+          style: const TextStyle(
+            color: AppTheme.textPrimary,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 
@@ -718,30 +833,6 @@ class _SocialPageState extends State<SocialPage>
             style:
                 const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
       ],
-    );
-  }
-
-  Widget _buildTabBar() {
-    return Container(
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppTheme.border)),
-      ),
-      child: TabBar(
-        controller: _tabController,
-        indicatorColor: AppTheme.primary,
-        indicatorWeight: 3,
-        labelColor: AppTheme.primary,
-        unselectedLabelColor: AppTheme.textSecondary,
-        labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-        isScrollable: true,
-        tabs: const [
-          Tab(text: 'Ratings'),
-          Tab(text: 'Diary'),
-          Tab(text: 'Badges'),
-          Tab(text: 'Saves'),
-          Tab(text: 'Friends'),
-        ],
-      ),
     );
   }
 
@@ -2716,5 +2807,34 @@ class _SocialPageState extends State<SocialPage>
     } catch (e) {
       return dateStr;
     }
+  }
+}
+
+class _SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
+  final TabBar tabBar;
+
+  _SliverTabBarDelegate(this.tabBar);
+
+  @override
+  double get minExtent => tabBar.preferredSize.height;
+
+  @override
+  double get maxExtent => tabBar.preferredSize.height;
+
+  @override
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppTheme.background,
+        border: Border(bottom: BorderSide(color: AppTheme.border)),
+      ),
+      child: tabBar,
+    );
+  }
+
+  @override
+  bool shouldRebuild(_SliverTabBarDelegate oldDelegate) {
+    return false;
   }
 }
