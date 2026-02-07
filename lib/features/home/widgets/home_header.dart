@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import 'voice_search_button.dart';
 
-class HomeHeader extends StatelessWidget {
+class HomeHeader extends StatefulWidget {
   final String selectedCity;
   final String searchQuery;
   final bool hasActiveFilters;
@@ -28,6 +28,36 @@ class HomeHeader extends StatelessWidget {
   });
 
   @override
+  State<HomeHeader> createState() => _HomeHeaderState();
+}
+
+class _HomeHeaderState extends State<HomeHeader> {
+  // ✅ FIX: Add TextEditingController
+  late TextEditingController _searchController;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController(text: widget.searchQuery);
+  }
+
+  @override
+  void didUpdateWidget(HomeHeader oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // ✅ FIX: Update controller when searchQuery changes externally
+    if (widget.searchQuery != oldWidget.searchQuery &&
+        _searchController.text != widget.searchQuery) {
+      _searchController.text = widget.searchQuery;
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -43,7 +73,7 @@ class HomeHeader extends StatelessWidget {
             children: [
               // Location Selector
               InkWell(
-                onTap: onCityTap,
+                onTap: widget.onCityTap,
                 borderRadius: BorderRadius.circular(8),
                 child: Row(
                   children: [
@@ -57,15 +87,16 @@ class HomeHeader extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          selectedCity,
+                          widget.selectedCity,
                           style:
                               Theme.of(context).textTheme.titleMedium?.copyWith(
                                     fontWeight: FontWeight.bold,
                                   ),
                         ),
-                        if (selectedArea != null && selectedArea!.isNotEmpty)
+                        if (widget.selectedArea != null &&
+                            widget.selectedArea!.isNotEmpty)
                           Text(
-                            selectedArea!,
+                            widget.selectedArea!,
                             style: const TextStyle(
                               color: AppTheme.textTertiary,
                               fontSize: 10,
@@ -145,7 +176,8 @@ class HomeHeader extends StatelessWidget {
               border: Border.all(color: AppTheme.border),
             ),
             child: TextField(
-              onChanged: onSearchChanged,
+              controller: _searchController, // ✅ FIX: Use controller
+              onChanged: widget.onSearchChanged,
               style: const TextStyle(color: AppTheme.textPrimary),
               decoration: InputDecoration(
                 hintText: 'Search restaurants, cuisines, areas...',
@@ -155,7 +187,9 @@ class HomeHeader extends StatelessWidget {
                 suffixIcon: Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: VoiceSearchButton(
-                    onSearchComplete: onSearchChanged,
+                    onSearchComplete: widget.onSearchChanged,
+                    searchController:
+                        _searchController, // ✅ FIX: Pass controller
                   ),
                 ),
                 border: InputBorder.none,
@@ -174,7 +208,7 @@ class HomeHeader extends StatelessWidget {
               // Filters Button
               Expanded(
                 child: InkWell(
-                  onTap: onFilterTap,
+                  onTap: widget.onFilterTap,
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     decoration: BoxDecoration(
@@ -198,7 +232,7 @@ class HomeHeader extends StatelessWidget {
                                     fontWeight: FontWeight.w500,
                                   ),
                         ),
-                        if (hasActiveFilters) ...[
+                        if (widget.hasActiveFilters) ...[
                           const SizedBox(width: 6),
                           Container(
                             width: 6,
@@ -220,7 +254,7 @@ class HomeHeader extends StatelessWidget {
               // Sort Button
               Expanded(
                 child: InkWell(
-                  onTap: onSortTap,
+                  onTap: widget.onSortTap,
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     decoration: BoxDecoration(
@@ -239,7 +273,7 @@ class HomeHeader extends StatelessWidget {
                         const SizedBox(width: 8),
                         Flexible(
                           child: Text(
-                            sortLabel,
+                            widget.sortLabel,
                             style: Theme.of(context)
                                 .textTheme
                                 .bodyMedium

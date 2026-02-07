@@ -4,10 +4,12 @@ import '../../../core/theme/app_theme.dart';
 
 class VoiceSearchButton extends StatefulWidget {
   final Function(String query) onSearchComplete;
+  final TextEditingController? searchController; // ✅ NEW: Accept controller
 
   const VoiceSearchButton({
     super.key,
     required this.onSearchComplete,
+    this.searchController, // ✅ NEW: Optional controller
   });
 
   @override
@@ -74,7 +76,16 @@ class _VoiceSearchButtonState extends State<VoiceSearchButton>
           _transcription = result.recognizedWords;
         });
 
-        // ✅ FIX #1: Update search bar in real-time during transcription
+        // ✅ FIX #1: Update TextEditingController if provided
+        if (widget.searchController != null) {
+          widget.searchController!.text = result.recognizedWords;
+          // Move cursor to end
+          widget.searchController!.selection = TextSelection.fromPosition(
+            TextPosition(offset: result.recognizedWords.length),
+          );
+        }
+
+        // ✅ FIX #2: Update search in real-time
         widget.onSearchComplete(result.recognizedWords);
 
         // Auto-complete when user stops speaking
@@ -97,6 +108,10 @@ class _VoiceSearchButtonState extends State<VoiceSearchButton>
 
   void _completeSearch() {
     if (_transcription.trim().isNotEmpty) {
+      // ✅ FIX #3: Ensure controller is updated
+      if (widget.searchController != null) {
+        widget.searchController!.text = _transcription.trim();
+      }
       widget.onSearchComplete(_transcription.trim());
     }
     _stopListening();
